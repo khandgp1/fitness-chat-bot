@@ -105,19 +105,19 @@ interface ClientState {
 
 ### Checklist
 
-- [ ] Create `src/state/schema.ts` — define all TypeScript interfaces above
-- [ ] Create `src/state/store.ts` — implement:
+- [x] Create `src/state/schema.ts` — define all TypeScript interfaces above
+- [x] Create `src/state/store.ts` — implement:
   - `loadClient(clientId: string): ClientState`
   - `saveClient(state: ClientState): void`
   - `createClient(clientId: string, timezone: string): ClientState` (with sensible defaults)
   - `clientExists(clientId: string): boolean`
-- [ ] Add default values on creation:
+- [x] Add default values on creation:
   - `current_response_level: 0` (Level 0 — Full Feedback, per §5.1 ✅ confirmed)
   - `window_position: 0`, `responses_given: 0`
   - `streak_count: 0`
   - `compliance_status: 'Unknown'`
-- [ ] Write a quick manual test: create a client, load it, mutate a field, save, reload — confirm round-trip
-- [ ] Ensure `data/` directory is auto-created if missing on first write
+- [x] Write a quick manual test: create a client, load it, mutate a field, save, reload — confirm round-trip
+- [x] Ensure `data/` directory is auto-created if missing on first write
 
 **Exit Criteria:** `loadClient` / `saveClient` / `createClient` work correctly with a round-trip JSON file. All fields match §7.
 
@@ -327,13 +327,13 @@ fitness-chat-bot/
 
 ## Progress Tracker
 
-| Phase                           | Status         | Notes |
-| ------------------------------- | -------------- | ----- |
+| Phase                           | Status         | Notes                                                                               |
+| ------------------------------- | -------------- | ----------------------------------------------------------------------------------- |
 | Phase 1 — Scaffolding           | ✅ Completed   | Scaffolding, typescript setup, ESLint + Prettier configs, and env files configured. |
-| Phase 2 — State Model           | ⬜ Not Started |                                                                                     |
-| Phase 3 — LLM Classifier        | ⬜ Not Started |       |
-| Phase 4 — Compliance & Response | ⬜ Not Started |       |
-| Phase 5 — Telegram Wire-up      | ⬜ Not Started |       |
+| Phase 2 — State Model           | ✅ Completed   | Schema definitions and synchronous read/write storage layer implemented and verified. |
+| Phase 3 — LLM Classifier        | ⬜ Not Started |                                                                                     |
+| Phase 4 — Compliance & Response | ⬜ Not Started |                                                                                     |
+| Phase 5 — Telegram Wire-up      | ⬜ Not Started |                                                                                     |
 
 ---
 
