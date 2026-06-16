@@ -1,7 +1,11 @@
 # GM Ritual Algorithm
+
 ## Document Type: Algorithm Specification
+
 ## Version: 0.5
+
 ## Status: Implementation Configuration Added — LLM (Claude Haiku 4.5) and Development Channel (Telegram) Specified; Production Channel Still Open
+
 ## Scope: GM Ritual Only — Core Logic Unchanged from v0.4; Implementation Configuration Added
 
 ---
@@ -9,14 +13,17 @@
 ## Version Changelog — v0.4 → v0.5
 
 **Resolved this version:**
+
 - LLM for Section 3 classification confirmed: **Claude Haiku 4.5**, via forced tool use against the Section 3.4 output schema — see Section 10.1
 - Development/testing channel confirmed: **Telegram** — see Section 10.2
 
 **Explicitly scoped:**
-- The Telegram decision resolves a *development/testing* channel only. It does **not** resolve Open Decision #6 (production GM channel — Session Starter, Section 4), which remains open. See Section 8 note and Section 9.
+
+- The Telegram decision resolves a _development/testing_ channel only. It does **not** resolve Open Decision #6 (production GM channel — Session Starter, Section 4), which remains open. See Section 8 note and Section 9.
 
 **Unchanged:**
-- Sections 3–7 (Input Detection, Compliance Logic, Response Logic, Content Sources, Internal State Model) are unchanged from v0.4. Section 3.2's classification guidance remains authoritative and model-agnostic, per v0.4 Section 9 — Section 10.1 documents a specific model choice *for* that guidance, not a change *to* it.
+
+- Sections 3–7 (Input Detection, Compliance Logic, Response Logic, Content Sources, Internal State Model) are unchanged from v0.4. Section 3.2's classification guidance remains authoritative and model-agnostic, per v0.4 Section 9 — Section 10.1 documents a specific model choice _for_ that guidance, not a change _to_ it.
 
 **Implication:** The GM ritual algorithm now has a concrete, buildable reference configuration — a model, a schema-enforcement approach, and a channel to develop and test against — without requiring the production channel decision (Open Decision #6) to be made first.
 
@@ -32,18 +39,18 @@ The GM ritual is the foundational behavior anchor of the coaching system. As of 
 
 ## 2. Definitions
 
-| Term | Definition |
-|---|---|
-| **GM** | A message from the client classified as valid per Section 3 — confirming presence and identity adherence for the day |
-| **Calendar Day** | A 24-hour period from 12:00:00 AM to 11:59:59 PM in the client's local timezone |
-| **Compliant Day** | A calendar day in which at least one valid GM was confirmed |
-| **Miss** | A calendar day in which no valid GM was confirmed by 11:59:59 PM, AND the day is not in Pending Review status |
-| **Pending Review** | A calendar day in which a classification attempt failed and no valid GM has otherwise been confirmed — see Section 4.6 |
-| **Streak** | Count of consecutive compliant days. Internal only. Never surfaced to client. Holds (does not increment or reset) on Pending Review days. |
-| **Response Rate Level** | The current ratio of GMs that trigger a bot response (see Section 5) |
-| **Response Window** | A rolling set of 5 consecutive GMs used to govern response delivery |
-| **Approved Response Library** | External document containing all approved bot response messages for compliant GMs |
-| **Approved Motivational Library** | External document containing all approved motivational messages |
+| Term                              | Definition                                                                                                                                |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **GM**                            | A message from the client classified as valid per Section 3 — confirming presence and identity adherence for the day                      |
+| **Calendar Day**                  | A 24-hour period from 12:00:00 AM to 11:59:59 PM in the client's local timezone                                                           |
+| **Compliant Day**                 | A calendar day in which at least one valid GM was confirmed                                                                               |
+| **Miss**                          | A calendar day in which no valid GM was confirmed by 11:59:59 PM, AND the day is not in Pending Review status                             |
+| **Pending Review**                | A calendar day in which a classification attempt failed and no valid GM has otherwise been confirmed — see Section 4.6                    |
+| **Streak**                        | Count of consecutive compliant days. Internal only. Never surfaced to client. Holds (does not increment or reset) on Pending Review days. |
+| **Response Rate Level**           | The current ratio of GMs that trigger a bot response (see Section 5)                                                                      |
+| **Response Window**               | A rolling set of 5 consecutive GMs used to govern response delivery                                                                       |
+| **Approved Response Library**     | External document containing all approved bot response messages for compliant GMs                                                         |
+| **Approved Motivational Library** | External document containing all approved motivational messages                                                                           |
 
 ---
 
@@ -60,6 +67,7 @@ Section 3.2 is deliberately guidance-based rather than an exhaustive rule list. 
 A valid GM is a message that functions as the client's daily check-in — in the spirit of "GM" or "good morning."
 
 The classifier should account for:
+
 - **Typos and phrasing variation** — minor misspellings or natural variants of "GM" / "good morning" should be recognized as such (e.g., "Goof morning," "gm!!1," "G'morning")
 - **Position** — the greeting may appear anywhere in the message, not only at the start ("Quick GM, let's go" counts)
 - **Repetition** — repeated greetings don't invalidate ("GM GM")
@@ -72,16 +80,16 @@ Messages that don't reasonably represent a check-in — questions, comments, unr
 
 ### 3.3 Illustrative Examples
 
-*The following are illustrative, not exhaustive. They calibrate the kind of judgment expected — they are not a rule list to be matched against.*
+_The following are illustrative, not exhaustive. They calibrate the kind of judgment expected — they are not a rule list to be matched against._
 
-| Message | Illustrative Read |
-|---|---|
-| "GM" | Valid |
-| "Hey, good morning, let's go" | Valid — greeting appears anywhere in the message |
-| "Goof morning!" | Valid — recognizable typo of "good morning" |
-| "Can we talk about my macros?" | Invalid — not a check-in |
-| "morning, ready to work" | Likely invalid — "morning" alone generally falls short of the standard |
-| "Mornin'!" | Judgment call — illustrates the kind of borderline case intentionally left to the classifier |
+| Message                        | Illustrative Read                                                                            |
+| ------------------------------ | -------------------------------------------------------------------------------------------- |
+| "GM"                           | Valid                                                                                        |
+| "Hey, good morning, let's go"  | Valid — greeting appears anywhere in the message                                             |
+| "Goof morning!"                | Valid — recognizable typo of "good morning"                                                  |
+| "Can we talk about my macros?" | Invalid — not a check-in                                                                     |
+| "morning, ready to work"       | Likely invalid — "morning" alone generally falls short of the standard                       |
+| "Mornin'!"                     | Judgment call — illustrates the kind of borderline case intentionally left to the classifier |
 
 ### 3.4 Output Schema
 
@@ -111,26 +119,30 @@ On failure, the message is **not** classified as valid or invalid. The calendar 
 
 Retry policy (if any) is an implementation detail and does not change this logic — only the final unresolved state, after any retries, triggers 4.6.
 
-*Note: this section addresses infrastructure-level failures (no usable classifier output at all) — a different concern from the content-level judgment calls in 3.2/3.3, and is unaffected by the v0.4 simplification. Section 10.1 documents how v0.5's chosen implementation (forced tool use) substantially narrows which failures are even possible here.*
+_Note: this section addresses infrastructure-level failures (no usable classifier output at all) — a different concern from the content-level judgment calls in 3.2/3.3, and is unaffected by the v0.4 simplification. Section 10.1 documents how v0.5's chosen implementation (forced tool use) substantially narrows which failures are even possible here._
 
 ---
 
 ## 4. Compliance Logic
 
 ### 4.1 Calendar Day Definition
+
 - A calendar day runs from 12:00:00 AM to 11:59:59 PM, defined in the client's local timezone (confirmed v0.2 — unchanged)
 
 ### 4.2 Compliant Day
+
 A calendar day is marked **compliant** when at least one message that day is classified `is_valid_gm: true`.
 
 ### 4.3 Duplicate GM Handling
+
 If a valid GM is received and the current calendar day is already marked compliant:
+
 - Log the duplicate message with timestamp
 - Do not trigger a response
 - Do not alter streak count
 - Take no further action
 
-*(Unchanged from v0.2.)*
+_(Unchanged from v0.2.)_
 
 ### 4.4 Miss Detection
 
@@ -143,6 +155,7 @@ At 11:59:59 PM on any calendar day:
 **Miss response behavior: [DEFERRED — Blocked by cut threshold decision, unchanged from v0.2]**
 
 ### 4.5 Streak Tracking
+
 - Streak counter increments by 1 on each Compliant day
 - Streak counter resets to 0 on each Miss
 - Streak counter **holds** — neither increments nor resets — for any day in Pending Review status, until that day resolves to Compliant or Miss
@@ -153,6 +166,7 @@ At 11:59:59 PM on any calendar day:
 **Trigger:** A classification attempt fails (3.6), and no valid GM has otherwise been confirmed for that calendar day.
 
 **Effect:**
+
 - The day's `compliance_status` (Section 7) is set to `Pending Review`
 - The failed message is logged in `pending_review_log` (Section 7)
 - Streak holds (4.5)
@@ -164,7 +178,7 @@ At 11:59:59 PM on any calendar day:
 
 **Pending Review does not, by itself, trigger any cut-threshold, miss-notification, or miss-response logic** — all of which remain out of scope per Section 8. It is a neutral holding state.
 
-*(Unchanged from v0.3 — this addresses infrastructure-level classification failures, a separate concern from the content-judgment simplification in v0.4.)*
+_(Unchanged from v0.3 — this addresses infrastructure-level classification failures, a separate concern from the content-judgment simplification in v0.4.)_
 
 ---
 
@@ -174,12 +188,12 @@ At 11:59:59 PM on any calendar day:
 
 The algorithm operates at one of four response rate levels. The current level determines what proportion of valid GMs trigger a bot response.
 
-| Level | Label | Response Rate | GMs Responded Per Window of 5 |
-|---|---|---|---|
-| Level 0 | Full Feedback | 5/5 | All 5 |
-| Level 1 | Early Taper | 3/5 | 3 of 5 |
-| Level 2 | Mid Taper | 2/5 | 2 of 5 |
-| Level 3 | Minimal Feedback | 1/5 | 1 of 5 |
+| Level   | Label            | Response Rate | GMs Responded Per Window of 5 |
+| ------- | ---------------- | ------------- | ----------------------------- |
+| Level 0 | Full Feedback    | 5/5           | All 5                         |
+| Level 1 | Early Taper      | 3/5           | 3 of 5                        |
+| Level 2 | Mid Taper        | 2/5           | 2 of 5                        |
+| Level 3 | Minimal Feedback | 1/5           | 1 of 5                        |
 
 **Note on Level 0:** ✅ **Confirmed (v0.2).** Level 0 (5/5) is the active starting state for every client. Every valid GM receives a response while the client is at Level 0.
 
@@ -192,6 +206,7 @@ The algorithm operates at one of four response rate levels. The current level de
 **Design Principle:** Response delivery must be unpredictable to the client. The exact ratio must be maintained over time. Both requirements are satisfied through conditional probability within a rolling 5-GM window.
 
 **The algorithm maintains two counters per client at all times:**
+
 - `window_position` — Current position within the active 5-GM window (values 1–5)
 - `responses_given` — Number of responses already sent within the current window
 
@@ -249,13 +264,13 @@ From the client's perspective, response timing is unpredictable and non-patterne
 
 **Worked Example — Level 1 (3 responses per 5 GMs):**
 
-| GM # | window_position | remaining_gms | remaining_needed | probability | outcome |
-|---|---|---|---|---|---|
-| 1 | 1 | 5 | 3 | 3/5 = 60% | responded |
-| 2 | 2 | 4 | 2 | 2/4 = 50% | no response |
-| 3 | 3 | 3 | 2 | 2/3 = 67% | responded |
-| 4 | 4 | 2 | 1 | 1/2 = 50% | no response |
-| 5 | 5 | 1 | 1 | 1/1 = 100% | responded (forced) |
+| GM # | window_position | remaining_gms | remaining_needed | probability | outcome            |
+| ---- | --------------- | ------------- | ---------------- | ----------- | ------------------ |
+| 1    | 1               | 5             | 3                | 3/5 = 60%   | responded          |
+| 2    | 2               | 4             | 2                | 2/4 = 50%   | no response        |
+| 3    | 3               | 3             | 2                | 2/3 = 67%   | responded          |
+| 4    | 4               | 2             | 1                | 1/2 = 50%   | no response        |
+| 5    | 5               | 1             | 1                | 1/1 = 100%  | responded (forced) |
 
 Window resets. Exactly 3 responses delivered. Client experienced no discernible pattern.
 
@@ -263,13 +278,13 @@ Window resets. Exactly 3 responses delivered. Client experienced no discernible 
 
 **Worked Example — Level 2 (2 responses per 5 GMs):**
 
-| GM # | window_position | remaining_gms | remaining_needed | probability | outcome |
-|---|---|---|---|---|---|
-| 1 | 1 | 5 | 2 | 2/5 = 40% | no response |
-| 2 | 2 | 4 | 2 | 2/4 = 50% | responded |
-| 3 | 3 | 3 | 1 | 1/3 = 33% | no response |
-| 4 | 4 | 2 | 1 | 1/2 = 50% | no response |
-| 5 | 5 | 1 | 1 | 1/1 = 100% | responded (forced) |
+| GM # | window_position | remaining_gms | remaining_needed | probability | outcome            |
+| ---- | --------------- | ------------- | ---------------- | ----------- | ------------------ |
+| 1    | 1               | 5             | 2                | 2/5 = 40%   | no response        |
+| 2    | 2               | 4             | 2                | 2/4 = 50%   | responded          |
+| 3    | 3               | 3             | 1                | 1/3 = 33%   | no response        |
+| 4    | 4               | 2             | 1                | 1/2 = 50%   | no response        |
+| 5    | 5               | 1             | 1                | 1/1 = 100%  | responded (forced) |
 
 Window resets. Exactly 2 responses delivered.
 
@@ -278,6 +293,7 @@ Window resets. Exactly 2 responses delivered.
 ## 6. Content Sources
 
 ### 6.1 Approved Response Library
+
 When a response is triggered, the algorithm selects one message at random from the Approved Response Library.
 
 - Selection method: random draw, no repeat until full library cycled (confirmed as the v0.1 operating rule — see referenced document)
@@ -285,6 +301,7 @@ When a response is triggered, the algorithm selects one message at random from t
 - **Document reference:** `approved_response_library_v01.md` — ✅ created (v0.1, placeholder content). Tone/voice and final content remain open — see that document's Open Questions section.
 
 ### 6.2 Approved Motivational Library
+
 Motivational messages fire on a variable schedule independent of the GM response logic above.
 
 - Delivery schedule and trigger logic: remains a separate algorithm component, not yet designed — out of scope for this document (Section 8)
@@ -297,19 +314,19 @@ Motivational messages fire on a variable schedule independent of the GM response
 
 The algorithm must track and persist the following variables per client:
 
-| Variable | Type | Description | Client-Visible |
-|---|---|---|---|
-| `client_id` | String | Unique client identifier | No |
-| `gm_received_today` | Boolean | At least one message today classified `is_valid_gm: true` | No |
-| `compliance_status` | Enum: `Compliant` \| `Miss` \| `Pending Review` | Current day's resolved status per Section 4 (v0.3) | No |
-| `streak_count` | Integer | Consecutive compliant days. Holds during Pending Review (4.5) | No |
-| `current_response_level` | Integer (0–3) | Active response rate level | No |
-| `window_position` | Integer (0–5) | Position within current 5-GM response window | No |
-| `responses_given` | Integer | Responses sent within current window | No |
-| `gm_log` | Timestamp Array | Log of all `is_valid_gm: true` classifications, with `reasoning` (v0.3, revised v0.4 — `matched_criteria` removed) | No |
-| `miss_log` | Date Array | Full log of all days resolved as Miss | No |
-| `pending_review_log` | Array of {date, message, failure_reason, timestamp} | Days currently awaiting resolution per 4.6 (v0.3) | No |
-| `classification_log` | Array of {message, is_valid_gm, reasoning, timestamp} | **Recommended** — full classification audit trail, all messages, for monitoring and dispute resolution (v0.3, revised v0.4) | No |
+| Variable                 | Type                                                  | Description                                                                                                                 | Client-Visible |
+| ------------------------ | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `client_id`              | String                                                | Unique client identifier                                                                                                    | No             |
+| `gm_received_today`      | Boolean                                               | At least one message today classified `is_valid_gm: true`                                                                   | No             |
+| `compliance_status`      | Enum: `Compliant` \| `Miss` \| `Pending Review`       | Current day's resolved status per Section 4 (v0.3)                                                                          | No             |
+| `streak_count`           | Integer                                               | Consecutive compliant days. Holds during Pending Review (4.5)                                                               | No             |
+| `current_response_level` | Integer (0–3)                                         | Active response rate level                                                                                                  | No             |
+| `window_position`        | Integer (0–5)                                         | Position within current 5-GM response window                                                                                | No             |
+| `responses_given`        | Integer                                               | Responses sent within current window                                                                                        | No             |
+| `gm_log`                 | Timestamp Array                                       | Log of all `is_valid_gm: true` classifications, with `reasoning` (v0.3, revised v0.4 — `matched_criteria` removed)          | No             |
+| `miss_log`               | Date Array                                            | Full log of all days resolved as Miss                                                                                       | No             |
+| `pending_review_log`     | Array of {date, message, failure_reason, timestamp}   | Days currently awaiting resolution per 4.6 (v0.3)                                                                           | No             |
+| `classification_log`     | Array of {message, is_valid_gm, reasoning, timestamp} | **Recommended** — full classification audit trail, all messages, for monitoring and dispute resolution (v0.3, revised v0.4) | No             |
 
 ---
 
@@ -334,19 +351,19 @@ The following are confirmed system components intentionally excluded from this d
 
 ## 9. Open Variables — Remaining Items
 
-| Variable | Status | Note |
-|---|---|---|
-| Level activation triggers | 🟡 Out of scope (by design) | Pending phase transition decisions |
-| Miss response behavior | 🟡 Out of scope (by design) | Blocked by cut threshold decision |
-| Non-GM message handling | 🟡 Deferred (by design) | Not addressed in this version |
-| Approved Response Library — tone/voice | 🟡 Content finalization pending | See `approved_response_library_v01.md` |
-| Approved Motivational Library — content model | 🟡 Content finalization pending | See `approved_motivational_library_v01.md` |
-| "Mornin'" / colloquial-Morning classification | ✅ Resolved (v0.4) | No longer requires pre-resolution — left to classifier judgment per Section 3.2; retained as an illustrative example in 3.3 |
-| Non-English / multi-language detection | 🟡 Side-effect flagged (v0.4) | v0.4 guidance no longer explicitly scopes to English. A judgment-based classifier may recognize non-English greetings as a byproduct — not an explicit decision, flagged for awareness |
-| **Pending Review resolution process** | 🔴 Required — new component | Unchanged from v0.3. Addresses LLM-call infrastructure failures — a separate concern from content judgment. See 4.6, 8. |
-| LLM implementation specifics (model, prompt, config) | ✅ **Resolved (v0.5)** | Claude Haiku 4.5, forced tool use against Section 3.4 schema, Section 3.2(+3.3) as system prompt, extended thinking off — see Section 10.1 |
-| GM channel — development/testing | ✅ **Resolved (v0.5)** | Telegram — see Section 10.2 |
-| GM channel — production (Open Decision #6) | 🔴 Still open | Unchanged — Session Starter Section 4. The development-channel resolution above does not resolve this; a channel-adapter layer is assumed between core logic and whichever channel(s) are used (Section 10.2) |
+| Variable                                             | Status                          | Note                                                                                                                                                                                                          |
+| ---------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Level activation triggers                            | 🟡 Out of scope (by design)     | Pending phase transition decisions                                                                                                                                                                            |
+| Miss response behavior                               | 🟡 Out of scope (by design)     | Blocked by cut threshold decision                                                                                                                                                                             |
+| Non-GM message handling                              | 🟡 Deferred (by design)         | Not addressed in this version                                                                                                                                                                                 |
+| Approved Response Library — tone/voice               | 🟡 Content finalization pending | See `approved_response_library_v01.md`                                                                                                                                                                        |
+| Approved Motivational Library — content model        | 🟡 Content finalization pending | See `approved_motivational_library_v01.md`                                                                                                                                                                    |
+| "Mornin'" / colloquial-Morning classification        | ✅ Resolved (v0.4)              | No longer requires pre-resolution — left to classifier judgment per Section 3.2; retained as an illustrative example in 3.3                                                                                   |
+| Non-English / multi-language detection               | 🟡 Side-effect flagged (v0.4)   | v0.4 guidance no longer explicitly scopes to English. A judgment-based classifier may recognize non-English greetings as a byproduct — not an explicit decision, flagged for awareness                        |
+| **Pending Review resolution process**                | 🔴 Required — new component     | Unchanged from v0.3. Addresses LLM-call infrastructure failures — a separate concern from content judgment. See 4.6, 8.                                                                                       |
+| LLM implementation specifics (model, prompt, config) | ✅ **Resolved (v0.5)**          | Claude Haiku 4.5, forced tool use against Section 3.4 schema, Section 3.2(+3.3) as system prompt, extended thinking off — see Section 10.1                                                                    |
+| GM channel — development/testing                     | ✅ **Resolved (v0.5)**          | Telegram — see Section 10.2                                                                                                                                                                                   |
+| GM channel — production (Open Decision #6)           | 🔴 Still open                   | Unchanged — Session Starter Section 4. The development-channel resolution above does not resolve this; a channel-adapter layer is assumed between core logic and whichever channel(s) are used (Section 10.2) |
 
 ---
 
@@ -360,7 +377,7 @@ This section documents concrete implementation choices for building and testing 
 
 **Rationale:** The Section 3 classification task — a short message in, a judgment against Section 3.2's guidance, a structured result per Section 3.4 — is a high-throughput, low-complexity classification task performed once per client per message. Claude Haiku 4.5 is Anthropic's current lightweight tier, designed for exactly this profile, at substantially lower cost than the mid/flagship tiers with no meaningful quality loss for tasks of this shape. A larger model would not improve judgment on the borderline cases that v0.4 deliberately leaves to classifier discretion (Section 3.3) — it would only add cost and latency.
 
-**Schema enforcement (Section 3.4):** Use a forced tool call — define a tool whose input schema matches `{is_valid_gm: boolean, reasoning: string}`, and set `tool_choice` to force that tool. The model's response *is* the structured output, which substantially narrows the "malformed output" branch of Section 3.6. The realistic remaining Pending Review (4.6) triggers are API-level: no response, error, or timeout — not schema drift.
+**Schema enforcement (Section 3.4):** Use a forced tool call — define a tool whose input schema matches `{is_valid_gm: boolean, reasoning: string}`, and set `tool_choice` to force that tool. The model's response _is_ the structured output, which substantially narrows the "malformed output" branch of Section 3.6. The realistic remaining Pending Review (4.6) triggers are API-level: no response, error, or timeout — not schema drift.
 
 **System prompt:** Section 3.2's guidance, included close to verbatim. Section 3.3's illustrative examples may be included as few-shot grounding for borderline cases.
 
@@ -382,5 +399,5 @@ This section documents concrete implementation choices for building and testing 
 
 ---
 
-*Document Version: 0.5 | Type: Algorithm Specification | Scope: GM Ritual Only | Status: Implementation Configuration Added — Production Channel Still Open*
-*Fitness Coaching Operating System | Build Log: GM Ritual Algorithm*
+_Document Version: 0.5 | Type: Algorithm Specification | Scope: GM Ritual Only | Status: Implementation Configuration Added — Production Channel Still Open_
+_Fitness Coaching Operating System | Build Log: GM Ritual Algorithm_
