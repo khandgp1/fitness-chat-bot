@@ -1,8 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { ClientState } from './schema.js';
+import { transitionClientDays, getLocalDateStr } from '../compliance/compliance.js';
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+export function getDataDir(): string {
+  return process.env.DATA_DIR || path.join(process.cwd(), 'data');
+}
 
 /**
  * Gets the secure path to a client's state file, preventing path traversal.
@@ -12,7 +15,7 @@ export function getClientFilePath(clientId: string): string {
   if (safeClientId !== clientId || !clientId) {
     throw new Error(`Invalid or insecure client ID format: "${clientId}"`);
   }
-  return path.join(DATA_DIR, `${safeClientId}.json`);
+  return path.join(getDataDir(), `${safeClientId}.json`);
 }
 
 /**
@@ -37,7 +40,16 @@ export function loadClient(clientId: string): ClientState {
     throw new Error(`Client state file not found for client ID: ${clientId}`);
   }
   const rawData = fs.readFileSync(filePath, 'utf-8');
-  return JSON.parse(rawData) as ClientState;
+  const state = JSON.parse(rawData) as ClientState;
+
+  const currentLocalDate = getLocalDateStr(state.timezone);
+  const originalLastActiveDate = state.last_active_date;
+
+  const transitionedState = transitionClientDays(state, currentLocalDate);
+  if (transitionedState.last_active_date !== originalLastActiveDate) {
+    saveClient(transitionedState);
+  }
+  return transitionedState;
 }
 
 /**
@@ -50,7 +62,7 @@ export function saveClient(state: ClientState): void {
   const filePath = getClientFilePath(state.client_id);
 
   // Ensure the target directory exists
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.mkdirSync(getDataDir(), { recursive: true });
 
   const serialized = JSON.stringify(state, null, 2);
   fs.writeFileSync(filePath, serialized, 'utf-8');
@@ -77,6 +89,7 @@ export function createClient(clientId: string, timezone: string): ClientState {
     current_response_level: 0,
     window_position: 0,
     responses_given: 0,
+    last_active_date: getLocalDateStr(timezone),
     gm_log: [],
     miss_log: [],
     pending_review_log: [],

@@ -9,12 +9,12 @@
 
 ## Tech Decisions (Confirmed via /grill-me)
 
-| Decision | Choice | Rationale |
-| :--- | :--- | :--- |
-| **API Timeout / Retries** | 10-second timeout, 0 retries | Keeps the Telegram response loop responsive and predictable. Transient failures fail fast and safely default to Pending Review. |
-| **Test Verification** | Real API calls only | Programmatic verification via `testClassifier.ts` requires a valid `ANTHROPIC_API_KEY` to guarantee our prompts and schemas are correctly validated against the live Claude API. |
-| **Client Initialization** | Internal / Singleton | The Anthropic client is initialized once inside `src/classifier/classify.ts` from environment variables, keeping imports clean and simple. |
-| **Schema Enforcement** | Forced tool use (`classify_gm`) | Guarantees structured JSON input blocks matching `{ is_valid_gm: boolean, reasoning: string }`, eliminating schema-drift parsing issues. |
+| Decision                  | Choice                          | Rationale                                                                                                                                                                        |
+| :------------------------ | :------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **API Timeout / Retries** | 10-second timeout, 0 retries    | Keeps the Telegram response loop responsive and predictable. Transient failures fail fast and safely default to Pending Review.                                                  |
+| **Test Verification**     | Real API calls only             | Programmatic verification via `testClassifier.ts` requires a valid `ANTHROPIC_API_KEY` to guarantee our prompts and schemas are correctly validated against the live Claude API. |
+| **Client Initialization** | Internal / Singleton            | The Anthropic client is initialized once inside `src/classifier/classify.ts` from environment variables, keeping imports clean and simple.                                       |
+| **Schema Enforcement**    | Forced tool use (`classify_gm`) | Guarantees structured JSON input blocks matching `{ is_valid_gm: boolean, reasoning: string }`, eliminating schema-drift parsing issues.                                         |
 
 ---
 

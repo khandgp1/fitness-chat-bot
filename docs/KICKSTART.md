@@ -327,13 +327,13 @@ fitness-chat-bot/
 
 ## Progress Tracker
 
-| Phase                           | Status         | Notes                                                                               |
-| ------------------------------- | -------------- | ----------------------------------------------------------------------------------- |
-| Phase 1 — Scaffolding           | ✅ Completed   | Scaffolding, typescript setup, ESLint + Prettier configs, and env files configured. |
+| Phase                           | Status         | Notes                                                                                 |
+| ------------------------------- | -------------- | ------------------------------------------------------------------------------------- |
+| Phase 1 — Scaffolding           | ✅ Completed   | Scaffolding, typescript setup, ESLint + Prettier configs, and env files configured.   |
 | Phase 2 — State Model           | ✅ Completed   | Schema definitions and synchronous read/write storage layer implemented and verified. |
-| Phase 3 — LLM Classifier        | ⬜ Not Started |                                                                                     |
-| Phase 4 — Compliance & Response | ⬜ Not Started |                                                                                     |
-| Phase 5 — Telegram Wire-up      | ⬜ Not Started |                                                                                     |
+| Phase 3 — LLM Classifier        | ⬜ Not Started |                                                                                       |
+| Phase 4 — Compliance & Response | ⬜ Not Started |                                                                                       |
+| Phase 5 — Telegram Wire-up      | ⬜ Not Started |                                                                                       |
 
 ---
 

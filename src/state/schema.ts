@@ -29,6 +29,7 @@ export interface ClientState {
   current_response_level: 0 | 1 | 2 | 3;
   window_position: number; // 0-5
   responses_given: number;
+  last_active_date?: string; // YYYY-MM-DD in client's local timezone
   gm_log: GmLogEntry[];
   miss_log: string[]; // ISO date strings (e.g. YYYY-MM-DD)
   pending_review_log: PendingReviewEntry[];
