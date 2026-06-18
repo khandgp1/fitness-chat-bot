@@ -4,24 +4,26 @@ import { ClassificationResult } from '../classifier/classify.js';
 /**
  * Returns current date in YYYY-MM-DD using sv-SE locale in the target IANA timezone.
  */
-export function getLocalDateStr(timezone: string): string {
+export function getLocalDateStr(timezone: string, timestampStr?: string): string {
   try {
+    const referenceDate = timestampStr ? new Date(timestampStr) : new Date();
     return new Intl.DateTimeFormat('sv-SE', {
       timeZone: timezone,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
-    }).format(new Date());
+    }).format(referenceDate);
   } catch (error) {
     console.error(
       `Error formatting local date for timezone "${timezone}". Falling back to local system date.`,
       error,
     );
+    const referenceDate = timestampStr ? new Date(timestampStr) : new Date();
     return new Intl.DateTimeFormat('sv-SE', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
-    }).format(new Date());
+    }).format(referenceDate);
   }
 }
 
@@ -90,13 +92,14 @@ export function handleGmResult(
   state: ClientState,
   result: ClassificationResult | null,
   messageText: string,
+  timestampStr?: string,
 ): ClientState {
-  const currentDate = getLocalDateStr(state.timezone);
+  const currentDate = getLocalDateStr(state.timezone, timestampStr);
 
   // Catch up the client state to today's date first
   transitionClientDays(state, currentDate);
 
-  const timestamp = new Date().toISOString();
+  const timestamp = timestampStr || new Date().toISOString();
 
   if (result === null) {
     // LLM classification failed or timed out

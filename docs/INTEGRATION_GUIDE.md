@@ -48,6 +48,7 @@ There is **no synchronous request-response**. Every POST is fire-and-forget. Eac
 ```
 
 **Step by step:**
+
 1. Human types a message → UI sends `POST /message` to sandbox
 2. Sandbox stores the message, returns `200 OK` to UI immediately
 3. Sandbox fires `POST /webhook` at the Bot Server (no reply expected)
@@ -62,6 +63,7 @@ There is **no synchronous request-response**. Every POST is fire-and-forget. Eac
 ## What You Need to Build (Your Project)
 
 Your bot algorithm project must:
+
 1. Expose a **webhook endpoint** that the sandbox calls when the user sends a message
 2. Call the **sandbox's reply endpoint** to deliver the bot's response
 
@@ -76,17 +78,27 @@ The sandbox sends the user's message here.
   "userId": "sandbox-user",
   "message": "Hello, I want to get fit",
   "history": [
-    { "role": "user", "userId": "sandbox-user", "text": "Hello, I want to get fit", "timestamp": "2026-01-01T00:00:00.000Z" },
-    { "role": "bot",  "userId": "sandbox-user", "text": "Great! Let's get started.", "timestamp": "2026-01-01T00:00:01.000Z" }
+    {
+      "role": "user",
+      "userId": "sandbox-user",
+      "text": "Hello, I want to get fit",
+      "timestamp": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "role": "bot",
+      "userId": "sandbox-user",
+      "text": "Great! Let's get started.",
+      "timestamp": "2026-01-01T00:00:01.000Z"
+    }
   ]
 }
 ```
 
-| Field | Type | Description |
-|:---|:---|:---|
-| `userId` | `string` | Identifier for the sandbox user (always `"sandbox-user"` in single-user mode) |
-| `message` | `string` | The raw text the user just sent |
-| `history` | `ConversationEntry[]` | Full conversation history **prior to** the current message, oldest first |
+| Field     | Type                  | Description                                                                   |
+| :-------- | :-------------------- | :---------------------------------------------------------------------------- |
+| `userId`  | `string`              | Identifier for the sandbox user (always `"sandbox-user"` in single-user mode) |
+| `message` | `string`              | The raw text the user just sent                                               |
+| `history` | `ConversationEntry[]` | Full conversation history **prior to** the current message, oldest first      |
 
 **Required response:**
 
@@ -112,9 +124,9 @@ After your bot generates a reply, POST it back to the sandbox.
 }
 ```
 
-| Field | Type | Description |
-|:---|:---|:---|
-| `userId` | `string` | Must match the `userId` from the original webhook call |
+| Field     | Type     | Description                                                 |
+| :-------- | :------- | :---------------------------------------------------------- |
+| `userId`  | `string` | Must match the `userId` from the original webhook call      |
 | `message` | `string` | The bot's reply text — this is what the user sees in the UI |
 
 **Expected response:**
@@ -137,4 +149,3 @@ BOT_WEBHOOK_URL=http://localhost:4000/webhook
 ```
 
 Set `BOT_WEBHOOK_URL` to the full URL of your bot's `/webhook` endpoint. If this variable is **not set**, the sandbox falls back to its built-in placeholder bot engine — so existing usage is unaffected.
-

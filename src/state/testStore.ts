@@ -1,6 +1,7 @@
 import assert from 'assert/strict';
 import fs from 'fs';
 import { clientExists, createClient, loadClient, saveClient, getClientFilePath } from './store.js';
+import { ClientState, GmLogEntry, PendingReviewEntry, ClassificationLogEntry } from './schema.js';
 
 function runTests(): void {
   const testClientId = 'test-client-999';
@@ -17,7 +18,7 @@ function runTests(): void {
 
   // 2. Client creation and defaults verification
   console.log('Creating a new test client in America/New_York timezone...');
-  const state = createClient(testClientId, 'America/New_York');
+  const state: ClientState = createClient(testClientId, 'America/New_York');
 
   assert.equal(state.client_id, testClientId);
   assert.equal(state.timezone, 'America/New_York');
@@ -44,22 +45,22 @@ function runTests(): void {
   state.window_position = 3;
   state.responses_given = 2;
 
-  state.gm_log.push({
+  (state.gm_log as GmLogEntry[]).push({
     timestamp: nowStr,
     message: 'GM!',
     reasoning: 'Matches standard greeting exactly.',
   });
 
-  state.miss_log.push('2026-06-15');
+  (state.miss_log as string[]).push('2026-06-15');
 
-  state.pending_review_log.push({
+  (state.pending_review_log as PendingReviewEntry[]).push({
     date: '2026-06-14',
     message: 'mornin',
     failure_reason: 'API connection timed out',
     timestamp: nowStr,
   });
 
-  state.classification_log.push({
+  (state.classification_log as ClassificationLogEntry[]).push({
     timestamp: nowStr,
     message: 'GM!',
     is_valid_gm: true,

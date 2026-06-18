@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import cron, { ScheduledTask } from 'node-cron';
 import fs from 'fs';
 import path from 'path';
 import { loadClient, getDataDir } from '../state/store.js';
@@ -7,7 +7,7 @@ import { loadClient, getDataDir } from '../state/store.js';
  * Starts the hourly scheduler to check and process midnight transitions
  * for all enrolled clients in their respective local timezones.
  */
-export function startMidnightScheduler(): cron.ScheduledTask {
+export function startMidnightScheduler(): ScheduledTask {
   console.log('Starting midnight scheduler (hourly checks)...');
 
   // Schedule a task to run at the top of every hour: '0 * * * *'

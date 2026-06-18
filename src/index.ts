@@ -1,10 +1,17 @@
 import 'dotenv/config';
+import { startMidnightScheduler } from './scheduler/midnight.js';
+import { startBotServer } from './bot/bot.js';
 
-function main(): void {
-  console.log('Bot scaffolding ready.');
-  console.log(`Node version: ${process.version}`);
-  console.log(`TELEGRAM_BOT_TOKEN set: ${Boolean(process.env.TELEGRAM_BOT_TOKEN)}`);
-  console.log(`ANTHROPIC_API_KEY set: ${Boolean(process.env.ANTHROPIC_API_KEY)}`);
-}
+// Start the midnight scheduler
+startMidnightScheduler();
 
-main();
+// Start the sandbox Express server
+startBotServer();
+
+console.log('GM Ritual Bot has successfully started in Sandbox mode.');
+
+// Handle graceful shutdown
+process.once('SIGINT', () => {
+  console.log('Shutting down gracefully...');
+  process.exit(0);
+});

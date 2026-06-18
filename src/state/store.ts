@@ -34,7 +34,7 @@ export function clientExists(clientId: string): boolean {
  * Loads a client's state from disk.
  * Throws if the file does not exist or contains invalid JSON.
  */
-export function loadClient(clientId: string): ClientState {
+export function loadClient(clientId: string, timestamp?: string): ClientState {
   const filePath = getClientFilePath(clientId);
   if (!fs.existsSync(filePath)) {
     throw new Error(`Client state file not found for client ID: ${clientId}`);
@@ -42,7 +42,7 @@ export function loadClient(clientId: string): ClientState {
   const rawData = fs.readFileSync(filePath, 'utf-8');
   const state = JSON.parse(rawData) as ClientState;
 
-  const currentLocalDate = getLocalDateStr(state.timezone);
+  const currentLocalDate = getLocalDateStr(state.timezone, timestamp);
   const originalLastActiveDate = state.last_active_date;
 
   const transitionedState = transitionClientDays(state, currentLocalDate);
@@ -72,7 +72,7 @@ export function saveClient(state: ClientState): void {
  * Creates a new client state with default values and persists it.
  * Validates the provided timezone string.
  */
-export function createClient(clientId: string, timezone: string): ClientState {
+export function createClient(clientId: string, timezone: string, timestamp?: string): ClientState {
   // Validate IANA timezone
   try {
     Intl.DateTimeFormat(undefined, { timeZone: timezone });
@@ -89,7 +89,7 @@ export function createClient(clientId: string, timezone: string): ClientState {
     current_response_level: 0,
     window_position: 0,
     responses_given: 0,
-    last_active_date: getLocalDateStr(timezone),
+    last_active_date: getLocalDateStr(timezone, timestamp),
     gm_log: [],
     miss_log: [],
     pending_review_log: [],

@@ -288,6 +288,44 @@ function runTests() {
     // Clean up scheduler task
     schedulerTask.stop();
 
+    // ==========================================
+    // Test 6: Custom Timestamp-driven Transitions
+    // ==========================================
+    console.log('Testing custom timestamp-driven transitions...');
+
+    // 1. Test getLocalDateStr with custom timestamp
+    const dateUTC = getLocalDateStr('UTC', '2026-06-18T19:21:26.131Z');
+    assert.strictEqual(dateUTC, '2026-06-18', 'getLocalDateStr with custom timestamp in UTC');
+
+    const dateNY = getLocalDateStr('America/New_York', '2026-06-18T03:21:26.131Z');
+    assert.strictEqual(dateNY, '2026-06-17', 'getLocalDateStr NY day adjustment should match timezone');
+
+    // 2. Test createClient with timestamp
+    const timestampedClient = createClient('client_timestamped', 'UTC', '2026-06-18T19:21:26.131Z');
+    assert.strictEqual(timestampedClient.last_active_date, '2026-06-18');
+
+    // 3. Test handleGmResult with timestamp
+    const stateT1 = handleGmResult(
+      timestampedClient,
+      { is_valid_gm: true, reasoning: 'Custom check-in' },
+      'GM',
+      '2026-06-18T19:21:26.131Z',
+    );
+    assert.strictEqual(stateT1.gm_received_today, true);
+    assert.strictEqual(stateT1.streak_count, 1);
+    assert.strictEqual(stateT1.gm_log[0].timestamp, '2026-06-18T19:21:26.131Z');
+    assert.strictEqual(stateT1.classification_log[0].timestamp, '2026-06-18T19:21:26.131Z');
+
+    // Save state to disk before testing loadClient catch-up
+    saveClient(stateT1);
+
+    // 4. Test loadClient with timestamp (triggering catch-up up to that timestamp date)
+    // Client was active on 2026-06-18, next day check-in is at 2026-06-20 (a miss on 19th)
+    const stateT2 = loadClient('client_timestamped', '2026-06-20T12:00:00Z');
+    assert.strictEqual(stateT2.last_active_date, '2026-06-20');
+    assert.strictEqual(stateT2.streak_count, 0, 'Streak should reset on missed day');
+    assert.deepStrictEqual(stateT2.miss_log, ['2026-06-19'], 'Miss logged for 2026-06-19');
+
     console.log('--- ALL TESTS PASSED SUCCESSFULLY! ---');
   } finally {
     // Clean up test directories

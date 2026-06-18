@@ -20,7 +20,7 @@ const anthropic = new Anthropic({
 });
 
 // Tool schema matching the specification in Section 3.4
-const gmTool = {
+const gmTool: Anthropic.Tool = {
   name: 'classify_gm',
   description: 'Classify whether a message is a valid GM check-in',
   input_schema: {
@@ -37,7 +37,7 @@ const gmTool = {
     },
     required: ['is_valid_gm', 'reasoning'],
   },
-} as const;
+};
 
 const systemPrompt = `You are a text classification assistant. Your task is to classify whether a user's message is a valid daily GM (good morning) check-in.
 
