@@ -14,7 +14,7 @@ import {
   transitionClientDays,
   handleGmResult,
 } from './compliance.js';
-import { startMidnightScheduler } from '../scheduler/midnight.js';
+import { startHourlyScheduler } from '../scheduler/hourly.js';
 
 // Helper to clean up the test data directory
 function cleanTestDir(): void {
@@ -262,7 +262,7 @@ function runTests() {
     // ==========================================
     // Test 5: Scheduler Verification
     // ==========================================
-    console.log('Testing midnight scheduler integration...');
+    console.log('Testing hourly scheduler integration...');
 
     // Setup another stale client
     const schedulerClient = createClient('client_scheduler', 'UTC');
@@ -271,8 +271,8 @@ function runTests() {
     saveClient(schedulerClient);
 
     // Start scheduler (we will call its internal cron runner task logic manually by mocking/triggering,
-    // or since startMidnightScheduler returns the task, we can just run the files directory poll)
-    const schedulerTask = startMidnightScheduler();
+    // or since startHourlyScheduler returns the task, we can just run the files directory poll)
+    const schedulerTask = startHourlyScheduler();
 
     // Since scheduler works on files in DATA_DIR, we verify that calling loadClient for each file transitions it.
     // We will simulate the top-of-hour readdir poll directly:

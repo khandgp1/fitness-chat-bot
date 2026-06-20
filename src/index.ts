@@ -1,9 +1,9 @@
 import 'dotenv/config';
-import { startMidnightScheduler } from './scheduler/midnight.js';
+import { startHourlyScheduler } from './scheduler/hourly.js';
 import { startBotServer } from './bot/bot.js';
 
-// Start the midnight scheduler
-startMidnightScheduler();
+// Start the hourly batch + compliance scheduler
+startHourlyScheduler();
 
 // Start the sandbox Express server
 startBotServer();
