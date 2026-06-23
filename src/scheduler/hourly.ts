@@ -1,6 +1,7 @@
 import cron, { ScheduledTask } from 'node-cron';
 import { loadClient } from '../state/store.js';
 import { flushPendingBatch } from '../bot/bot.js';
+import { devNow } from '../dev/clock.js';
 
 /**
  * Starts the hourly scheduler that runs at the top of every hour.
@@ -15,7 +16,7 @@ export function startHourlyScheduler(): ScheduledTask {
   console.log('Starting hourly batch + compliance scheduler (0 * * * *)...');
 
   const task = cron.schedule('0 * * * *', async () => {
-    const now = new Date();
+    const now = devNow();
     console.log(`[Scheduler] Hourly tick at ${now.toISOString()}`);
 
     const clientId = process.env.BOT_CLIENT_ID;

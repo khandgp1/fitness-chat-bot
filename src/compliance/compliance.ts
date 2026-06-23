@@ -1,12 +1,13 @@
 import { ClientState, PendingReviewEntry } from '../state/schema.js';
 import { ClassificationResult } from '../classifier/classify.js';
+import { devNow } from '../dev/clock.js';
 
 /**
  * Returns current date in YYYY-MM-DD using sv-SE locale in the target IANA timezone.
  */
 export function getLocalDateStr(timezone: string, timestampStr?: string): string {
   try {
-    const referenceDate = timestampStr ? new Date(timestampStr) : new Date();
+    const referenceDate = timestampStr ? new Date(timestampStr) : devNow();
     return new Intl.DateTimeFormat('sv-SE', {
       timeZone: timezone,
       year: 'numeric',
@@ -18,7 +19,7 @@ export function getLocalDateStr(timezone: string, timestampStr?: string): string
       `Error formatting local date for timezone "${timezone}". Falling back to local system date.`,
       error,
     );
-    const referenceDate = timestampStr ? new Date(timestampStr) : new Date();
+    const referenceDate = timestampStr ? new Date(timestampStr) : devNow();
     return new Intl.DateTimeFormat('sv-SE', {
       year: 'numeric',
       month: '2-digit',
@@ -49,7 +50,7 @@ export function transitionClientDays(state: ClientState, currentDate: string): C
     return state;
   }
 
-  if (state.last_active_date === currentDate) {
+  if (state.last_active_date === currentDate || currentDate < state.last_active_date) {
     return state;
   }
 
@@ -99,7 +100,7 @@ export function handleGmResult(
   // Catch up the client state to today's date first
   transitionClientDays(state, currentDate);
 
-  const timestamp = timestampStr || new Date().toISOString();
+  const timestamp = timestampStr || devNow().toISOString();
 
   if (result === null) {
     // LLM classification failed or timed out

@@ -2,6 +2,10 @@ import express, { Request, Response } from 'express';
 import { clientExists, createClient, loadClient, saveClient } from '../state/store.js';
 import { classifyMessage } from '../classifier/classify.js';
 import { handleGmResult } from '../compliance/compliance.js';
+import { devNow, advanceDay, advance30Min, resetClock, getOffsetMs } from '../dev/clock.js';
+import { logMessage, getMessages } from '../dev/messageLog.js';
+import { getDashboardHtml } from '../dev/dashboardHtml.js';
+import { resetClient } from '../dev/resetClient.js';
 
 const messageQueues = new Map<string, string[]>();
 const batchStartTimestamps = new Map<string, string>();
@@ -40,8 +44,18 @@ async function processBatch(userId: string, anchoredTimestamp?: string): Promise
     // Save state
     saveClient(updatedState);
 
+    const latestGm = updatedState.gm_log[updatedState.gm_log.length - 1];
+    const latestGmStr = latestGm 
+      ? `[${latestGm.timestamp}] "${latestGm.message}"` 
+      : '[None]';
+
     console.log(
-      `[Batch pipeline] userId=${userId} | messages=${queue.length} | isValidGM=${result?.is_valid_gm ?? 'error'} | compliance=${updatedState.compliance_status} | streak=${updatedState.streak_count}`
+      `[Batch Processed] userId="${userId}"\n` +
+      `  - Messages: ${JSON.stringify(queue)}\n` +
+      `  - Classification: ${result ? `isValidGM=${result.is_valid_gm} | Reasoning: "${result.reasoning}"` : '[Error/Timeout]'}\n` +
+      `  - Compliance Status: ${updatedState.compliance_status}\n` +
+      `  - Streak Count: ${updatedState.streak_count}\n` +
+      `  - Latest GM Log Entry: ${latestGmStr}`
     );
   } catch (err) {
     console.error(`[Batch] Error processing batch for "${userId}":`, err);
@@ -75,6 +89,11 @@ export function startBotServer(): void {
       return;
     }
 
+    console.log(`[webhook] Received message from "${userId}": "${message}"`);
+
+    // Log the message in memory for the dev dashboard
+    logMessage(userId, message, devNow().toISOString());
+
     // 1. Respond with HTTP 200 OK after successful validation
     res.sendStatus(200);
 
@@ -82,10 +101,104 @@ export function startBotServer(): void {
     // each new batch so the effective calendar date is always correct.
     if (!messageQueues.has(userId)) {
       messageQueues.set(userId, []);
-      batchStartTimestamps.set(userId, new Date().toISOString());
+      batchStartTimestamps.set(userId, devNow().toISOString());
       console.log(`[webhook] New batch started for client "${userId}" — processing deferred to next hourly cron tick`);
     }
     messageQueues.get(userId)!.push(message);
+  });
+
+  app.post('/dev/advance-day', async (req: Request, res: Response) => {
+    advanceDay();
+    const newOffset = getOffsetMs();
+    const currentDevTime = devNow().toISOString();
+
+    const clientId = process.env.BOT_CLIENT_ID;
+    if (clientId) {
+      try {
+        await flushPendingBatch(clientId);
+        loadClient(clientId, currentDevTime);
+      } catch (err) {
+        console.error('[dev] Error running post-advance actions:', err);
+      }
+    }
+
+    res.json({
+      success: true,
+      offsetMs: newOffset,
+      devTime: currentDevTime,
+    });
+  });
+
+  app.post('/dev/advance-30min', (req: Request, res: Response) => {
+    advance30Min();
+    res.json({
+      success: true,
+      offsetMs: getOffsetMs(),
+      devTime: devNow().toISOString(),
+    });
+  });
+
+  app.post('/dev/reset-clock', (req: Request, res: Response) => {
+    resetClock();
+    res.json({
+      success: true,
+      offsetMs: getOffsetMs(),
+      devTime: devNow().toISOString(),
+    });
+  });
+
+  app.post('/dev/reset', (req: Request, res: Response) => {
+    const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
+    console.log(`[dev] Wiping client state for "${clientId}"...`);
+    try {
+      const newState = resetClient(clientId);
+      res.json({
+        success: true,
+        clientId,
+        state: newState,
+      });
+    } catch (err) {
+      console.error('[dev] Error resetting client state:', err);
+      res.status(500).json({ error: `Error resetting client state: ${(err as Error).message}` });
+    }
+  });
+
+  app.get('/dev/clock', (req: Request, res: Response) => {
+    res.json({
+      offsetMs: getOffsetMs(),
+      devTime: devNow().toISOString(),
+    });
+  });
+
+  app.get('/dev/api/state', (req: Request, res: Response) => {
+    const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
+    let state;
+    try {
+      if (!clientExists(clientId)) {
+        createClient(clientId, 'America/New_York');
+      }
+      state = loadClient(clientId);
+    } catch (err) {
+      res.status(500).json({ error: `Error loading client state: ${(err as Error).message}` });
+      return;
+    }
+
+    res.json({
+      state,
+      clock: {
+        offsetMs: getOffsetMs(),
+        devTime: devNow().toISOString(),
+      },
+    });
+  });
+
+  app.get('/dev/api/messages', (req: Request, res: Response) => {
+    res.json(getMessages());
+  });
+
+  app.get('/dev/dashboard', (req: Request, res: Response) => {
+    const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
+    res.send(getDashboardHtml(clientId));
   });
 
   app.listen(Number(port), () => {
