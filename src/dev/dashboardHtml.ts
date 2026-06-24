@@ -544,7 +544,7 @@ export function getDashboardHtml(clientId: string): string {
               <button class="btn btn-danger" onclick="triggerResetClient()">🗑️ Reset Client Data</button>
             </div>
             <div class="text-sm">
-              Note: Advancing the day will flush pending batches. Resetting client data deletes and re-creates the client state with fresh defaults.
+              Note: Advancing the day will flush pending batches. Advancing 30 min will also flush pending batches if the time crosses an hour boundary. Resetting client data deletes and re-creates the client state with fresh defaults.
             </div>
           </div>
         </div>

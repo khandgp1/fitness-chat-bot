@@ -129,12 +129,36 @@ export function startBotServer(): void {
     });
   });
 
-  app.post('/dev/advance-30min', (req: Request, res: Response) => {
+  app.post('/dev/advance-30min', async (req: Request, res: Response) => {
+    const hourBefore = devNow().getHours();
     advance30Min();
+    const hourAfter = devNow().getHours();
+
+    const crossedHourBoundary = hourBefore !== hourAfter;
+    let triggeredMidnight = false;
+
+    const clientId = process.env.BOT_CLIENT_ID;
+    if (crossedHourBoundary && clientId) {
+      try {
+        console.log(`[dev] +30min crossed hour boundary (${hourBefore} → ${hourAfter}), flushing pending batch...`);
+        await flushPendingBatch(clientId);
+
+        if (hourAfter === 0) {
+          console.log(`[dev] Crossed midnight — running compliance day-transition for "${clientId}"`);
+          loadClient(clientId, devNow().toISOString());
+          triggeredMidnight = true;
+        }
+      } catch (err) {
+        console.error('[dev] Error running post-advance-30min actions:', err);
+      }
+    }
+
     res.json({
       success: true,
       offsetMs: getOffsetMs(),
       devTime: devNow().toISOString(),
+      crossedHourBoundary,
+      triggeredMidnight,
     });
   });
 
