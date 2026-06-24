@@ -6,15 +6,15 @@ Add an HTML dev dashboard served from the existing Express server at `GET /dev/d
 
 ## Architecture Decisions
 
-| Decision | Choice |
-|---|---|
-| Serving | Embedded in existing Express server (`GET /dev/dashboard`) |
-| Update mechanism | Polling every 3 s via `fetch()` |
-| Chat panel data | In-memory webhook message log (userId + message + timestamp) |
-| Bot state data | Full `ClientState` + dev clock info |
-| Interactive controls | Advance Day, Advance 30 min, Reset Clock, Send Message form |
-| Layout | Side-by-side split (chat left, state right) |
-| Visual style | Dark theme, terminal-inspired dev aesthetic |
+| Decision             | Choice                                                       |
+| -------------------- | ------------------------------------------------------------ |
+| Serving              | Embedded in existing Express server (`GET /dev/dashboard`)   |
+| Update mechanism     | Polling every 3 s via `fetch()`                              |
+| Chat panel data      | In-memory webhook message log (userId + message + timestamp) |
+| Bot state data       | Full `ClientState` + dev clock info                          |
+| Interactive controls | Advance Day, Advance 30 min, Reset Clock, Send Message form  |
+| Layout               | Side-by-side split (chat left, state right)                  |
+| Visual style         | Dark theme, terminal-inspired dev aesthetic                  |
 
 ---
 
@@ -39,11 +39,11 @@ A small in-memory message log module:
 
 Add three new `GET` endpoints to serve dashboard data:
 
-| Endpoint | Returns |
-|---|---|
-| `GET /dev/dashboard` | Serves the full HTML dashboard (inline CSS + JS) |
-| `GET /dev/api/state` | JSON: full `ClientState` for `BOT_CLIENT_ID` + dev clock info |
-| `GET /dev/api/messages` | JSON: array from `getMessages()` |
+| Endpoint                | Returns                                                       |
+| ----------------------- | ------------------------------------------------------------- |
+| `GET /dev/dashboard`    | Serves the full HTML dashboard (inline CSS + JS)              |
+| `GET /dev/api/state`    | JSON: full `ClientState` for `BOT_CLIENT_ID` + dev clock info |
+| `GET /dev/api/messages` | JSON: array from `getMessages()`                              |
 
 > **Design note**: The HTML/CSS/JS is served as a single inline response from Express (`res.send(...)`) rather than static files. This keeps the dashboard self-contained with zero build tooling — just start the server and navigate to the URL.
 
@@ -54,6 +54,7 @@ Add three new `GET` endpoints to serve dashboard data:
 Single-page HTML document with inline `<style>` and `<script>`:
 
 **Layout**:
+
 - Header bar: "GM Ritual Bot — Dev Dashboard" + live dev clock display
 - Two-column flex layout below:
   - **Left panel — Chat Log**: Scrollable list of webhook messages (newest at bottom, auto-scroll). Each entry shows timestamp, userId, and message. At the bottom, a form to send a test message (userId input + message textarea + Send button).
@@ -66,11 +67,13 @@ Single-page HTML document with inline `<style>` and `<script>`:
     - Classification Log table
 
 **Polling logic** (vanilla JS):
+
 - `setInterval` every 3 s → fetch `/dev/api/state` and `/dev/api/messages`
 - Diff against previous data; only re-render panels that changed
 - Auto-scroll chat panel to bottom on new messages
 
 **Styling** (dark theme):
+
 - Background: `#0d1117` (GitHub dark)
 - Cards: `#161b22` with subtle borders (`#30363d`)
 - Accent color: `#58a6ff` (blue links/active states)

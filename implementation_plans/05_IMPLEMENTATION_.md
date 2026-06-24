@@ -8,12 +8,12 @@
 
 ## Tech Decisions (Aligned via /grill-me)
 
-| Decision | Choice | Rationale |
-| :--- | :--- | :--- |
-| **Missing Timestamp** | `400 Bad Request` | As aligned with the user, the timestamp is a required field. If missing or invalid, we reject immediately. |
-| **Validation Method** | Regex + `Date.parse()` | Verify the string matches an ISO 8601 format (`/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z\|[+-]\d{2}:?\d{2})$/`) and can be successfully parsed into a valid Date object. |
+| Decision               | Choice                 | Rationale                                                                                                                                                                                  |
+| :--------------------- | :--------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Missing Timestamp**  | `400 Bad Request`      | As aligned with the user, the timestamp is a required field. If missing or invalid, we reject immediately.                                                                                 |
+| **Validation Method**  | Regex + `Date.parse()` | Verify the string matches an ISO 8601 format (`/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z\|[+-]\d{2}:?\d{2})$/`) and can be successfully parsed into a valid Date object.             |
 | **Loading Transition** | Pass message timestamp | When loading client state to process a webhook, the client day catch-up transition is computed using the message's timestamp to align with the client's timezone-adjusted time of sending. |
-| **Client Creation** | Pass message timestamp | When a new client is enrolled during webhook handling, their initial `last_active_date` is initialized using the message's timestamp rather than the server's current date. |
+| **Client Creation**    | Pass message timestamp | When a new client is enrolled during webhook handling, their initial `last_active_date` is initialized using the message's timestamp rather than the server's current date.                |
 
 ---
 
@@ -25,7 +25,7 @@
 
 - Update the webhook body parsing to extract `timestamp`.
 - Implement validation for the `timestamp` field. If `timestamp` is missing, not a string, or not a valid ISO 8601 format, immediately respond with `400 Bad Request` containing an error message.
-- Move the `res.sendStatus(200)` response to occur *after* the request payload has been verified as valid, but before launching the asynchronous pipeline.
+- Move the `res.sendStatus(200)` response to occur _after_ the request payload has been verified as valid, but before launching the asynchronous pipeline.
 - Pass the verified `timestamp` to `createClient(userId, 'America/New_York', timestamp)`.
 - Pass the verified `timestamp` to `loadClient(userId, timestamp)`.
 - Pass the verified `timestamp` to `handleGmResult(state, result, message, timestamp)`.

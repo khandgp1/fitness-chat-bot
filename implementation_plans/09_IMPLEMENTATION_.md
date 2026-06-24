@@ -10,15 +10,15 @@ The approach introduces a **global in-memory time offset** applied to all `new D
 
 ## Design Decisions (resolved via grill-me)
 
-| Decision | Choice |
-|---|---|
-| Trigger mechanism | CLI npm scripts (`npm run dev:advance-day`, `dev:advance-30min`) |
-| Time advance strategy | Global in-memory clock offset applied via helper function |
-| Auto-trigger on +1 day | Yes — flush batch + run compliance day-transition immediately |
-| Offset accumulation | Cumulative (stacking); includes reset command |
-| Persistence | In-memory only — resets on process restart |
-| CLI ↔ server bridge | CLI scripts hit Express dev routes via HTTP |
-| Route gating | Always registered (no env gate for now) |
+| Decision               | Choice                                                           |
+| ---------------------- | ---------------------------------------------------------------- |
+| Trigger mechanism      | CLI npm scripts (`npm run dev:advance-day`, `dev:advance-30min`) |
+| Time advance strategy  | Global in-memory clock offset applied via helper function        |
+| Auto-trigger on +1 day | Yes — flush batch + run compliance day-transition immediately    |
+| Offset accumulation    | Cumulative (stacking); includes reset command                    |
+| Persistence            | In-memory only — resets on process restart                       |
+| CLI ↔ server bridge    | CLI scripts hit Express dev routes via HTTP                      |
+| Route gating           | Always registered (no env gate for now)                          |
 
 ---
 
@@ -134,21 +134,23 @@ Add npm scripts:
 ## Verification Plan
 
 ### Build Check
+
 - `npm run build` — TypeScript compilation must pass with no errors.
 
 ### Scenario Table
 
-| Scenario | Command | Expected Result |
-|---|---|---|
-| Advance 1 day, no pending messages | `npm run dev:advance-day` | `loadClient` triggers day transition; if no GM was received, logs a Miss and resets streak |
-| Advance 1 day, pending messages | `npm run dev:advance-day` | Batch flushed first with anchored timestamp, then day-transition runs |
-| Advance 30 min | `npm run dev:advance-30min` | Offset increases by 30 min; no side effects triggered |
-| Advance 3 days | Run `dev:advance-day` × 3 | Offset = +3 days; 3 day transitions processed; 3 misses logged if no GMs sent |
-| Reset clock | `npm run dev:reset-clock` | Offset returns to 0; new messages use real time |
-| Send message after advancing | `curl /webhook` after advance | Batch anchor uses dev-offset time, so message is credited to the correct simulated day |
-| Process restart | Stop and restart `npm run dev` | Offset is 0 again (in-memory only) |
+| Scenario                           | Command                        | Expected Result                                                                            |
+| ---------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------ |
+| Advance 1 day, no pending messages | `npm run dev:advance-day`      | `loadClient` triggers day transition; if no GM was received, logs a Miss and resets streak |
+| Advance 1 day, pending messages    | `npm run dev:advance-day`      | Batch flushed first with anchored timestamp, then day-transition runs                      |
+| Advance 30 min                     | `npm run dev:advance-30min`    | Offset increases by 30 min; no side effects triggered                                      |
+| Advance 3 days                     | Run `dev:advance-day` × 3      | Offset = +3 days; 3 day transitions processed; 3 misses logged if no GMs sent              |
+| Reset clock                        | `npm run dev:reset-clock`      | Offset returns to 0; new messages use real time                                            |
+| Send message after advancing       | `curl /webhook` after advance  | Batch anchor uses dev-offset time, so message is credited to the correct simulated day     |
+| Process restart                    | Stop and restart `npm run dev` | Offset is 0 again (in-memory only)                                                         |
 
 ### Manual Verification
+
 - Start the server with `npm run dev`.
 - Send a GM message via `/webhook`.
 - Run `npm run dev:advance-day` and verify the JSON state file shows day-transition effects.

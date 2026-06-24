@@ -10,14 +10,14 @@ This change makes the +30 min advance **simulate what the real hourly cron would
 
 ## Design Decisions (resolved via grill-me)
 
-| Decision | Choice |
-|---|---|
-| Flush + midnight compliance? | Yes — full hourly-tick simulation including midnight check |
-| Multi-boundary handling | Single check — if ANY hour boundary was crossed, fire once |
-| Logic location | In the `/dev/advance-30min` route handler in `bot.ts` |
-| Dashboard changes | None — existing auto-poll already refreshes state after clock actions |
-| API response metadata | Add `crossedHourBoundary` and `triggeredMidnight` fields to response |
-| Dashboard note text | Update to mention +30 min can also trigger a flush |
+| Decision                     | Choice                                                                |
+| ---------------------------- | --------------------------------------------------------------------- |
+| Flush + midnight compliance? | Yes — full hourly-tick simulation including midnight check            |
+| Multi-boundary handling      | Single check — if ANY hour boundary was crossed, fire once            |
+| Logic location               | In the `/dev/advance-30min` route handler in `bot.ts`                 |
+| Dashboard changes            | None — existing auto-poll already refreshes state after clock actions |
+| API response metadata        | Add `crossedHourBoundary` and `triggeredMidnight` fields to response  |
+| Dashboard note text          | Update to mention +30 min can also trigger a flush                    |
 
 ---
 
@@ -49,7 +49,9 @@ app.post('/dev/advance-30min', async (req: Request, res: Response) => {
   const clientId = process.env.BOT_CLIENT_ID;
   if (crossedHourBoundary && clientId) {
     try {
-      console.log(`[dev] +30min crossed hour boundary (${hourBefore} → ${hourAfter}), flushing pending batch...`);
+      console.log(
+        `[dev] +30min crossed hour boundary (${hourBefore} → ${hourAfter}), flushing pending batch...`,
+      );
       await flushPendingBatch(clientId);
 
       if (hourAfter === 0) {
@@ -89,20 +91,22 @@ Note: Advancing the day will flush pending batches. Advancing 30 min will also f
 ## Verification Plan
 
 ### Build Check
+
 - `npm run build` — TypeScript compilation must pass with no errors.
 
 ### Scenario Table
 
-| Scenario | Setup | Action | Expected Result |
-|---|---|---|---|
-| No hour crossing | Dev clock at e.g. 10:15 | `npm run dev:advance-30min` | Clock → 10:45, `crossedHourBoundary: false`, no flush |
-| Hour crossing | Dev clock at e.g. 10:45 | `npm run dev:advance-30min` | Clock → 11:15, `crossedHourBoundary: true`, batch flushed |
-| Midnight crossing | Dev clock at e.g. 23:45 | `npm run dev:advance-30min` | Clock → 00:15, `crossedHourBoundary: true`, `triggeredMidnight: true`, compliance check runs |
-| No pending batch | Dev clock at 10:45, no queued messages | `npm run dev:advance-30min` | `crossedHourBoundary: true`, flush is a no-op (nothing queued) |
-| Pending batch exists | Send message, then advance at 10:45 | `npm run dev:advance-30min` | Batch flushed, state updated, dashboard reflects changes on next poll |
-| Dashboard note | Open dashboard | Visual check | Note text mentions +30 min flush behavior |
+| Scenario             | Setup                                  | Action                      | Expected Result                                                                              |
+| -------------------- | -------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------- |
+| No hour crossing     | Dev clock at e.g. 10:15                | `npm run dev:advance-30min` | Clock → 10:45, `crossedHourBoundary: false`, no flush                                        |
+| Hour crossing        | Dev clock at e.g. 10:45                | `npm run dev:advance-30min` | Clock → 11:15, `crossedHourBoundary: true`, batch flushed                                    |
+| Midnight crossing    | Dev clock at e.g. 23:45                | `npm run dev:advance-30min` | Clock → 00:15, `crossedHourBoundary: true`, `triggeredMidnight: true`, compliance check runs |
+| No pending batch     | Dev clock at 10:45, no queued messages | `npm run dev:advance-30min` | `crossedHourBoundary: true`, flush is a no-op (nothing queued)                               |
+| Pending batch exists | Send message, then advance at 10:45    | `npm run dev:advance-30min` | Batch flushed, state updated, dashboard reflects changes on next poll                        |
+| Dashboard note       | Open dashboard                         | Visual check                | Note text mentions +30 min flush behavior                                                    |
 
 ### Manual Verification
+
 - Start server with `npm run dev`.
 - Send a GM message via `/webhook`.
 - Check `GET /dev/clock` to confirm current hour.

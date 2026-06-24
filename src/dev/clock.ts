@@ -15,10 +15,10 @@ export function advanceDay(): void {
 }
 
 /**
- * Advances the clock by exactly 30 minutes.
+ * Advances the clock by exactly 1 hour.
  */
-export function advance30Min(): void {
-  offsetMs += 30 * 60 * 1000;
+export function advance1Hour(): void {
+  offsetMs += 60 * 60 * 1000;
 }
 
 /**

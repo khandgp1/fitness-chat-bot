@@ -2,8 +2,8 @@ import express, { Request, Response } from 'express';
 import { clientExists, createClient, loadClient, saveClient } from '../state/store.js';
 import { classifyMessage } from '../classifier/classify.js';
 import { handleGmResult } from '../compliance/compliance.js';
-import { devNow, advanceDay, advance30Min, resetClock, getOffsetMs } from '../dev/clock.js';
-import { logMessage, getMessages } from '../dev/messageLog.js';
+import { devNow, advanceDay, advance1Hour, resetClock, getOffsetMs } from '../dev/clock.js';
+import { logMessage, getMessages, clearMessages } from '../dev/messageLog.js';
 import { getDashboardHtml } from '../dev/dashboardHtml.js';
 import { resetClient } from '../dev/resetClient.js';
 
@@ -19,7 +19,9 @@ async function processBatch(userId: string, anchoredTimestamp?: string): Promise
   }
 
   try {
-    console.log(`[Batch] Processing batch of ${queue.length} messages for "${userId}" (anchor=${anchoredTimestamp ?? 'now'})`);
+    console.log(
+      `[Batch] Processing batch of ${queue.length} messages for "${userId}" (anchor=${anchoredTimestamp ?? 'now'})`,
+    );
 
     // Ensure client exists
     if (!clientExists(userId)) {
@@ -45,17 +47,15 @@ async function processBatch(userId: string, anchoredTimestamp?: string): Promise
     saveClient(updatedState);
 
     const latestGm = updatedState.gm_log[updatedState.gm_log.length - 1];
-    const latestGmStr = latestGm 
-      ? `[${latestGm.timestamp}] "${latestGm.message}"` 
-      : '[None]';
+    const latestGmStr = latestGm ? `[${latestGm.timestamp}] "${latestGm.message}"` : '[None]';
 
     console.log(
       `[Batch Processed] userId="${userId}"\n` +
-      `  - Messages: ${JSON.stringify(queue)}\n` +
-      `  - Classification: ${result ? `isValidGM=${result.is_valid_gm} | Reasoning: "${result.reasoning}"` : '[Error/Timeout]'}\n` +
-      `  - Compliance Status: ${updatedState.compliance_status}\n` +
-      `  - Streak Count: ${updatedState.streak_count}\n` +
-      `  - Latest GM Log Entry: ${latestGmStr}`
+        `  - Messages: ${JSON.stringify(queue)}\n` +
+        `  - Classification: ${result ? `isValidGM=${result.is_valid_gm} | Reasoning: "${result.reasoning}"` : '[Error/Timeout]'}\n` +
+        `  - Compliance Status: ${updatedState.compliance_status}\n` +
+        `  - Streak Count: ${updatedState.streak_count}\n` +
+        `  - Latest GM Log Entry: ${latestGmStr}`,
     );
   } catch (err) {
     console.error(`[Batch] Error processing batch for "${userId}":`, err);
@@ -102,7 +102,9 @@ export function startBotServer(): void {
     if (!messageQueues.has(userId)) {
       messageQueues.set(userId, []);
       batchStartTimestamps.set(userId, devNow().toISOString());
-      console.log(`[webhook] New batch started for client "${userId}" — processing deferred to next hourly cron tick`);
+      console.log(
+        `[webhook] New batch started for client "${userId}" — processing deferred to next hourly cron tick`,
+      );
     }
     messageQueues.get(userId)!.push(message);
   });
@@ -129,27 +131,27 @@ export function startBotServer(): void {
     });
   });
 
-  app.post('/dev/advance-30min', async (req: Request, res: Response) => {
-    const hourBefore = devNow().getHours();
-    advance30Min();
+  app.post('/dev/advance-1hour', async (req: Request, res: Response) => {
+    advance1Hour();
     const hourAfter = devNow().getHours();
 
-    const crossedHourBoundary = hourBefore !== hourAfter;
     let triggeredMidnight = false;
 
     const clientId = process.env.BOT_CLIENT_ID;
-    if (crossedHourBoundary && clientId) {
+    if (clientId) {
       try {
-        console.log(`[dev] +30min crossed hour boundary (${hourBefore} → ${hourAfter}), flushing pending batch...`);
+        console.log(`[dev] +1hour advanced clock, flushing pending batch for "${clientId}"...`);
         await flushPendingBatch(clientId);
 
         if (hourAfter === 0) {
-          console.log(`[dev] Crossed midnight — running compliance day-transition for "${clientId}"`);
+          console.log(
+            `[dev] Crossed midnight — running compliance day-transition for "${clientId}"`,
+          );
           loadClient(clientId, devNow().toISOString());
           triggeredMidnight = true;
         }
       } catch (err) {
-        console.error('[dev] Error running post-advance-30min actions:', err);
+        console.error('[dev] Error running post-advance-1hour actions:', err);
       }
     }
 
@@ -157,7 +159,7 @@ export function startBotServer(): void {
       success: true,
       offsetMs: getOffsetMs(),
       devTime: devNow().toISOString(),
-      crossedHourBoundary,
+      crossedHourBoundary: true,
       triggeredMidnight,
     });
   });
@@ -220,6 +222,11 @@ export function startBotServer(): void {
     res.json(getMessages());
   });
 
+  app.post('/dev/api/messages/clear', (req: Request, res: Response) => {
+    clearMessages();
+    res.json({ success: true });
+  });
+
   app.get('/dev/dashboard', (req: Request, res: Response) => {
     const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
     res.send(getDashboardHtml(clientId));
@@ -233,4 +240,3 @@ export function startBotServer(): void {
 function PatternApp() {
   return express();
 }
-

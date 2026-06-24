@@ -34,7 +34,9 @@ export function startHourlyScheduler(): ScheduledTask {
       // This catches days where no message was received and marks them as Miss.
       const isMidnight = now.getHours() === 0;
       if (isMidnight) {
-        console.log(`[Scheduler] Midnight tick — running compliance check for client "${clientId}"`);
+        console.log(
+          `[Scheduler] Midnight tick — running compliance check for client "${clientId}"`,
+        );
         loadClient(clientId);
         console.log(`[Scheduler] Compliance check complete for client "${clientId}"`);
       }

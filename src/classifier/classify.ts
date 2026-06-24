@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import 'dotenv/config';
+import { loadReasoningMemory, formatReasoningForPrompt } from './reasoningMemory.js';
 
 // Define the ClassificationResult interface
 export interface ClassificationResult {
@@ -39,7 +40,7 @@ const gmTool: Anthropic.Tool = {
   },
 };
 
-const systemPrompt = `You are a text classification assistant. Your task is to classify whether a user's message is a valid daily GM (good morning) check-in.
+const baseSystemPrompt = `You are a text classification assistant. Your task is to classify whether a user's message is a valid daily GM (good morning) check-in.
 
 Guidance:
 - A valid GM is a message that functions as the client's daily check-in — in the spirit of "GM" or "good morning".
@@ -61,11 +62,31 @@ Illustrative Examples (grounding):
 You must invoke the "classify_gm" tool with the results of your classification.`;
 
 /**
+ * Builds the full system prompt by appending any approved reasoning memory
+ * entries after the base prompt's illustrative examples.
+ */
+function buildSystemPrompt(): string {
+  const entries = loadReasoningMemory();
+  const reasoningSection = formatReasoningForPrompt(entries);
+  const fullPrompt = baseSystemPrompt + reasoningSection;
+
+  if (entries.length > 0) {
+    console.log(
+      `[Classifier] Injected ${entries.length} reasoning memory entries into system prompt.`,
+    );
+  }
+
+  return fullPrompt;
+}
+
+/**
  * Classifies if a message is a valid GM check-in.
  * Returns null if the API call fails or times out.
  */
 export async function classifyMessage(message: string): Promise<ClassificationResult | null> {
   try {
+    const systemPrompt = buildSystemPrompt();
+
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5',
       max_tokens: 256,

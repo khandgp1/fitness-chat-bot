@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "dev:advance-day": "tsx src/dev/advanceDay.ts",
-    "dev:advance-30min": "tsx src/dev/advance30Min.ts",
+    "dev:advance-1hour": "tsx src/dev/advance1Hour.ts",
     "dev:reset-clock": "tsx src/dev/resetClock.ts"
   },
   "repository": {

@@ -8,15 +8,15 @@
 
 ## Tech Decisions (Aligned via /grill-me)
 
-| Decision | Choice | Rationale |
-| :--- | :--- | :--- |
-| **Batch trigger** | First unprocessed message starts a 30-minute timer | Simple event-driven window; no fixed-slot drift |
-| **Batch GM detection** | Concatenate all queued messages into one string, send to existing `classifyMessage` | Single LLM call per window; any valid GM in the batch counts |
-| **Batch storage** | In-memory `Map<userId, string[]>` + `Map<userId, NodeJS.Timeout>` | No schema changes; acceptable to drop a window on restart |
-| **Reply after batch** | No reply — silent compliance state update only | Decouples response UX from the delayed batch |
-| **New-day compliance** | Daily cron at `00:01` (replaces hourly scan) | Deterministic, no longer dependent on a message arriving |
-| **Single-client identity** | `BOT_CLIENT_ID` env var | Already consistent with env-config pattern in this repo |
-| **Tests** | Leave existing tests untouched | Pure-function signatures unchanged; batch logic not unit-tested for now |
+| Decision                   | Choice                                                                              | Rationale                                                               |
+| :------------------------- | :---------------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
+| **Batch trigger**          | First unprocessed message starts a 30-minute timer                                  | Simple event-driven window; no fixed-slot drift                         |
+| **Batch GM detection**     | Concatenate all queued messages into one string, send to existing `classifyMessage` | Single LLM call per window; any valid GM in the batch counts            |
+| **Batch storage**          | In-memory `Map<userId, string[]>` + `Map<userId, NodeJS.Timeout>`                   | No schema changes; acceptable to drop a window on restart               |
+| **Reply after batch**      | No reply — silent compliance state update only                                      | Decouples response UX from the delayed batch                            |
+| **New-day compliance**     | Daily cron at `00:01` (replaces hourly scan)                                        | Deterministic, no longer dependent on a message arriving                |
+| **Single-client identity** | `BOT_CLIENT_ID` env var                                                             | Already consistent with env-config pattern in this repo                 |
+| **Tests**                  | Leave existing tests untouched                                                      | Pure-function signatures unchanged; batch logic not unit-tested for now |
 
 ---
 
@@ -25,9 +25,11 @@
 ### Configuration
 
 #### [MODIFY] .env.example
+
 - Add `BOT_CLIENT_ID=your_client_id_here` (used by the 00:01 scheduler).
 
 #### [MODIFY] .env
+
 - Add `BOT_CLIENT_ID=<actual client id>` matching the real client's JSON filename.
 
 ---
@@ -39,18 +41,21 @@
 **Remove** the immediate per-message pipeline (steps 2–7 of the current async IIFE).
 
 **Add** two module-level Maps:
+
 ```ts
-const messageQueues = new Map<string, string[]>();      // userId → queued messages
-const batchTimers   = new Map<string, NodeJS.Timeout>(); // userId → active timer handle
+const messageQueues = new Map<string, string[]>(); // userId → queued messages
+const batchTimers = new Map<string, NodeJS.Timeout>(); // userId → active timer handle
 ```
 
 **New `/webhook` flow:**
+
 1. Validate `userId` + `message` as today.
 2. Respond `200 OK`.
 3. Push `message` into `messageQueues.get(userId)` (create array if first).
 4. If no timer is running for this `userId`, start a `setTimeout` of 30 minutes that calls `processBatch(userId)`.
 
 **New `processBatch(userId)` function:**
+
 1. Pop the full queue from `messageQueues` (clear it).
 2. Delete the timer handle from `batchTimers`.
 3. Ensure client exists (create if not).
@@ -70,6 +75,7 @@ const batchTimers   = new Map<string, NodeJS.Timeout>(); // userId → active ti
 **Remove** the hourly cron (`0 * * * *`) and the full-directory scan loop.
 
 **Add** a daily cron at `1 0 * * *` (00:01 every night) that:
+
 1. Reads `process.env.BOT_CLIENT_ID`.
 2. Calls `loadClient(clientId)` — which internally calls `transitionClientDays` and auto-saves if the day changed.
 3. Logs the result.

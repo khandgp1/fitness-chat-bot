@@ -12,15 +12,15 @@ The hourly cron also absorbs the responsibility of the existing **midnight sched
 
 ## Design Decisions (resolved via grill-me)
 
-| Decision | Choice |
-|---|---|
-| Effective date for a batch | Snapshot timestamp of **first message** in batch |
-| Midnight scheduler | **Replaced** by the hourly cron (no separate midnight.ts) |
-| Empty-queue behaviour on non-midnight hours | **No-op** — skip compliance check |
-| Compliance check timing | **Only at midnight tick** (12:00 AM hour) |
-| New scheduler location | `src/scheduler/hourly.ts` (new file) |
-| Cross-module coupling | Export `flushPendingBatch(userId)` from `bot.ts` |
-| `BATCH_WINDOW_MS` env var | **Removed** from `.env` and `.env.example` |
+| Decision                                    | Choice                                                    |
+| ------------------------------------------- | --------------------------------------------------------- |
+| Effective date for a batch                  | Snapshot timestamp of **first message** in batch          |
+| Midnight scheduler                          | **Replaced** by the hourly cron (no separate midnight.ts) |
+| Empty-queue behaviour on non-midnight hours | **No-op** — skip compliance check                         |
+| Compliance check timing                     | **Only at midnight tick** (12:00 AM hour)                 |
+| New scheduler location                      | `src/scheduler/hourly.ts` (new file)                      |
+| Cross-module coupling                       | Export `flushPendingBatch(userId)` from `bot.ts`          |
+| `BATCH_WINDOW_MS` env var                   | **Removed** from `.env` and `.env.example`                |
 
 ---
 
@@ -106,18 +106,19 @@ Removed entirely. Responsibility absorbed by `hourly.ts`.
 ## Verification Plan
 
 ### Build Check
+
 - `npm run build` — TypeScript compilation must pass with no errors.
 - Confirm no remaining references to `BATCH_WINDOW_MS`, `batchTimers`, or `startMidnightScheduler`.
 
 ### Scenario Table
 
-| Scenario | Expected Result |
-|---|---|
-| Message arrives at 11:45 PM, cron fires at 12:00 AM | Batch anchored to 11:45 PM date; credited to correct night |
-| Message arrives, cron fires same hour | GM evaluated and state saved correctly |
-| No messages pending at non-midnight hour tick | Cron is a no-op |
-| Midnight tick with no pending messages | No batch flush; compliance check runs via `loadClient` |
-| Midnight tick with pending messages | Batch flushed first (with anchor), then compliance check runs |
+| Scenario                                            | Expected Result                                               |
+| --------------------------------------------------- | ------------------------------------------------------------- |
+| Message arrives at 11:45 PM, cron fires at 12:00 AM | Batch anchored to 11:45 PM date; credited to correct night    |
+| Message arrives, cron fires same hour               | GM evaluated and state saved correctly                        |
+| No messages pending at non-midnight hour tick       | Cron is a no-op                                               |
+| Midnight tick with no pending messages              | No batch flush; compliance check runs via `loadClient`        |
+| Midnight tick with pending messages                 | Batch flushed first (with anchor), then compliance check runs |
 
 ---
 

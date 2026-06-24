@@ -473,7 +473,10 @@ export function getDashboardHtml(clientId: string): string {
     <div class="panel panel-left">
       <div class="panel-header">
         <span>Webhook Message Stream</span>
-        <span class="text-sm" id="messages-count">0 messages</span>
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span class="text-sm" id="messages-count">0 messages</span>
+          <button class="btn btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; border-radius: 4px;" onclick="clearMessageStream()">Clear</button>
+        </div>
       </div>
       <div class="panel-content">
         <div class="chat-log" id="chat-log-container">
@@ -538,13 +541,13 @@ export function getDashboardHtml(clientId: string): string {
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: space-between; align-items: center;">
               <div class="btn-group">
                 <button class="btn btn-primary" onclick="triggerClockAction('advance-day')">☀️ Advance 1 Day</button>
-                <button class="btn" onclick="triggerClockAction('advance-30min')">⏱️ Advance 30 Min</button>
+                <button class="btn" onclick="triggerClockAction('advance-1hour')">⏱️ Advance 1 Hour</button>
                 <button class="btn" onclick="triggerClockAction('reset-clock')">🔄 Reset Clock</button>
               </div>
               <button class="btn btn-danger" onclick="triggerResetClient()">🗑️ Reset Client Data</button>
             </div>
             <div class="text-sm">
-              Note: Advancing the day will flush pending batches. Advancing 30 min will also flush pending batches if the time crosses an hour boundary. Resetting client data deletes and re-creates the client state with fresh defaults.
+              Note: Advancing the day will flush pending batches. Advancing 1 hour will also flush pending batches. Resetting client data deletes and re-creates the client state with fresh defaults.
             </div>
           </div>
         </div>
@@ -789,7 +792,9 @@ export function getDashboardHtml(clientId: string): string {
       if (!isoString) return '';
       try {
         const date = new Date(isoString);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const dateStr = \`\${date.getMonth() + 1}/\${date.getDate()}\`;
+        const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+        return \`\${dateStr} \${timeStr}\`;
       } catch {
         return isoString;
       }
@@ -830,6 +835,32 @@ export function getDashboardHtml(clientId: string): string {
         console.error(\`Failed to trigger clock action \${action}:\`, err);
       }
     }
+
+    async function clearMessageStream() {
+      try {
+        const res = await fetch('/dev/api/messages/clear', { method: 'POST' });
+        if (res.ok) {
+          lastMessagesHash = "";
+          await pollData();
+        } else {
+          alert('Failed to clear messages: ' + res.statusText);
+        }
+      } catch (err) {
+        console.error('Clear messages error:', err);
+        alert('Failed to clear messages: ' + err.message);
+      }
+    }
+
+    // Send on Enter
+    document.getElementById('message').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const submitBtn = document.querySelector('#webhook-form button[type="submit"]');
+        if (submitBtn) {
+          submitBtn.click();
+        }
+      }
+    });
 
     async function triggerResetClient() {
       try {

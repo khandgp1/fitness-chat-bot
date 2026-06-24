@@ -23,3 +23,10 @@ export function logMessage(userId: string, message: string, timestamp: string): 
 export function getMessages(): MessageLogEntry[] {
   return [...messages];
 }
+
+/**
+ * Clears all logged messages.
+ */
+export function clearMessages(): void {
+  messages.length = 0;
+}

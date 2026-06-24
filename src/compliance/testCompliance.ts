@@ -298,7 +298,11 @@ function runTests() {
     assert.strictEqual(dateUTC, '2026-06-18', 'getLocalDateStr with custom timestamp in UTC');
 
     const dateNY = getLocalDateStr('America/New_York', '2026-06-18T03:21:26.131Z');
-    assert.strictEqual(dateNY, '2026-06-17', 'getLocalDateStr NY day adjustment should match timezone');
+    assert.strictEqual(
+      dateNY,
+      '2026-06-17',
+      'getLocalDateStr NY day adjustment should match timezone',
+    );
 
     // 2. Test createClient with timestamp
     const timestampedClient = createClient('client_timestamped', 'UTC', '2026-06-18T19:21:26.131Z');

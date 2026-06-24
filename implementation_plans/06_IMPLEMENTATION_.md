@@ -8,10 +8,10 @@
 
 ## Tech Decisions (Aligned via /grill-me)
 
-| Decision | Choice | Rationale |
-| :--- | :--- | :--- |
-| **Webhook Validation** | Remove `timestamp` requirement | Remove the validation check for `timestamp` from `/webhook` in `src/bot/bot.ts`. Any incoming timestamp is completely ignored. |
-| **Time Source** | Server System Clock (`new Date()`) | Use the standard JavaScript `new Date()` as the source of truth for the bot algorithm. |
+| Decision                          | Choice                               | Rationale                                                                                                                                                                                                                                                       |
+| :-------------------------------- | :----------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Webhook Validation**            | Remove `timestamp` requirement       | Remove the validation check for `timestamp` from `/webhook` in `src/bot/bot.ts`. Any incoming timestamp is completely ignored.                                                                                                                                  |
+| **Time Source**                   | Server System Clock (`new Date()`)   | Use the standard JavaScript `new Date()` as the source of truth for the bot algorithm.                                                                                                                                                                          |
 | **Internal Signatures & Testing** | Keep optional `timestamp` parameters | Retain the optional `timestamp` / `timestampStr` parameters in functions like `loadClient`, `createClient`, `handleGmResult`, and `getLocalDateStr` to avoid breaking existing unit tests and mock-free date testing, but do not pass them in the webhook path. |
 
 ---

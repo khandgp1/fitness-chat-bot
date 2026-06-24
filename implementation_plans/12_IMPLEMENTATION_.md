@@ -4,16 +4,16 @@ Add a dev command that deletes all persisted client state for the configured `BO
 
 ## Summary of Decisions (from grill-me)
 
-| Question | Answer |
-|----------|--------|
-| Trigger mechanism | **POST `/dev/reset` endpoint** + **Dashboard button** |
-| Scope | Only the configured `BOT_CLIENT_ID` client (e.g. `sandbox-user`) |
-| Behavior | Delete `.json` file → re-create with fresh defaults (same client ID & timezone) |
-| Data layers wiped | Persisted client state file only (gm_log, miss_log, classification_log, streak, compliance, etc.) |
-| In-memory message log | **Not cleared** |
-| In-memory message queue | **Not cleared** |
-| Dev clock offset | **Not reset** |
-| Confirmation | None required — fires immediately |
+| Question                | Answer                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------- |
+| Trigger mechanism       | **POST `/dev/reset` endpoint** + **Dashboard button**                                             |
+| Scope                   | Only the configured `BOT_CLIENT_ID` client (e.g. `sandbox-user`)                                  |
+| Behavior                | Delete `.json` file → re-create with fresh defaults (same client ID & timezone)                   |
+| Data layers wiped       | Persisted client state file only (gm_log, miss_log, classification_log, streak, compliance, etc.) |
+| In-memory message log   | **Not cleared**                                                                                   |
+| In-memory message queue | **Not cleared**                                                                                   |
+| Dev clock offset        | **Not reset**                                                                                     |
+| Confirmation            | None required — fires immediately                                                                 |
 
 ## Proposed Changes
 
@@ -22,6 +22,7 @@ Add a dev command that deletes all persisted client state for the configured `BO
 #### [NEW] `src/dev/resetClient.ts`
 
 New module that encapsulates the reset logic:
+
 1. Read the existing client file to capture the **timezone** (so we preserve it).
 2. Delete the `.json` file from `data/`.
 3. Call `createClient(clientId, timezone)` to re-create with all defaults.
@@ -55,6 +56,7 @@ app.post('/dev/reset', (req, res) => { ... });
 Add a **"🗑️ Reset Client Data"** button to the existing "Developer Clock Controls" card (or a new adjacent card). Use the existing `btn-danger` class for a red-styled destructive action button.
 
 Wire up an `onclick` handler that:
+
 1. Calls `POST /dev/reset`.
 2. On success, triggers `pollData()` to refresh the dashboard immediately.
 
@@ -71,6 +73,7 @@ Wire up an `onclick` handler that:
 ## Verification Plan
 
 ### Manual Verification
+
 1. Start the dev server (`npm run dev`)
 2. Send some test messages via the dashboard to populate state
 3. Click the "Reset Client Data" button on the dashboard

@@ -9,10 +9,10 @@ Additionally, when a batch of messages is processed in `processBatch`, print a d
 
 ## Design Decisions
 
-| Decision | Choice |
-|---|---|
-| Webhook Log Format | `[webhook] Received message from "<userId>": "<message>"` |
-| Batch Log Format | Multi-line structured log including: Message content, classification results (validity and reasoning), compliance status, streak count, and the latest GM log entry details. |
+| Decision           | Choice                                                                                                                                                                       |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Webhook Log Format | `[webhook] Received message from "<userId>": "<message>"`                                                                                                                    |
+| Batch Log Format   | Multi-line structured log including: Message content, classification results (validity and reasoning), compliance status, streak count, and the latest GM log entry details. |
 
 ---
 
@@ -28,17 +28,15 @@ Additionally, when a batch of messages is processed in `processBatch`, print a d
 ```ts
 // Replace the old console.log in processBatch with:
 const latestGm = updatedState.gm_log[updatedState.gm_log.length - 1];
-const latestGmStr = latestGm 
-  ? `[${latestGm.timestamp}] "${latestGm.message}"` 
-  : '[None]';
+const latestGmStr = latestGm ? `[${latestGm.timestamp}] "${latestGm.message}"` : '[None]';
 
 console.log(
   `[Batch Processed] userId="${userId}"\n` +
-  `  - Messages: ${JSON.stringify(queue)}\n` +
-  `  - Classification: ${result ? `isValidGM=${result.is_valid_gm} | Reasoning: "${result.reasoning}"` : '[Error/Timeout]'}\n` +
-  `  - Compliance Status: ${updatedState.compliance_status}\n` +
-  `  - Streak Count: ${updatedState.streak_count}\n` +
-  `  - Latest GM Log Entry: ${latestGmStr}`
+    `  - Messages: ${JSON.stringify(queue)}\n` +
+    `  - Classification: ${result ? `isValidGM=${result.is_valid_gm} | Reasoning: "${result.reasoning}"` : '[Error/Timeout]'}\n` +
+    `  - Compliance Status: ${updatedState.compliance_status}\n` +
+    `  - Streak Count: ${updatedState.streak_count}\n` +
+    `  - Latest GM Log Entry: ${latestGmStr}`,
 );
 ```
 

@@ -36,6 +36,8 @@ export function resetClient(clientId: string): ClientState {
 
   // Create client with the preserved/default timezone
   const newState = createClient(clientId, timezone);
-  console.log(`[Reset] Re-created fresh client state for "${clientId}" with timezone "${timezone}"`);
+  console.log(
+    `[Reset] Re-created fresh client state for "${clientId}" with timezone "${timezone}"`,
+  );
   return newState;
 }
