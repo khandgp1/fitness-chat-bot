@@ -2,10 +2,11 @@ import express, { Request, Response } from 'express';
 import { clientExists, createClient, loadClient, saveClient } from '../state/store.js';
 import { classifyMessage } from '../classifier/classify.js';
 import { handleGmResult } from '../compliance/compliance.js';
-import { devNow, advanceDay, advance1Hour, resetClock, getOffsetMs } from '../dev/clock.js';
+import { devNow, advance1Hour, resetClock, getOffsetMs } from '../dev/clock.js';
 import { logMessage, getMessages, clearMessages } from '../dev/messageLog.js';
 import { getDashboardHtml } from '../dev/dashboardHtml.js';
 import { resetClient } from '../dev/resetClient.js';
+import { getLocalHour, select5pmReply } from '../response/fivePmReply.js';
 
 const messageQueues = new Map<string, string[]>();
 const batchStartTimestamps = new Map<string, string>();
@@ -73,6 +74,42 @@ export async function flushPendingBatch(userId: string): Promise<void> {
   await processBatch(userId, anchoredTimestamp);
 }
 
+/**
+ * Executes all cron/compliance tasks for a given hour tick:
+ *   1. Flushes any pending message batch.
+ *   2. Runs compliance check at midnight (local hour 0).
+ *   3. Selects and logs the compliance reply at 5pm (local hour 17).
+ */
+export async function executeHourlyTick(
+  clientId: string,
+  now: Date,
+): Promise<{ triggeredMidnight: boolean }> {
+  let triggeredMidnight = false;
+
+  // Step 1: Always flush any pending batch first
+  await flushPendingBatch(clientId);
+
+  // Step 2: At midnight only, run the compliance day-transition check
+  const isMidnight = now.getHours() === 0;
+  if (isMidnight) {
+    console.log(`[Scheduler] Midnight tick — running compliance check for client "${clientId}"`);
+    loadClient(clientId, now.toISOString());
+    console.log(`[Scheduler] Compliance check complete for client "${clientId}"`);
+    triggeredMidnight = true;
+  }
+
+  // Step 3: At 5pm local time, select and log the daily compliance reply
+  const clientState = loadClient(clientId, now.toISOString());
+  const localHour = getLocalHour(clientState.timezone);
+  if (localHour === 17) {
+    const reply = select5pmReply(clientState);
+    logMessage('[BOT-5PM]', reply, now.toISOString());
+    console.log(`[Scheduler] 5pm reply logged for client "${clientId}": "${reply}"`);
+  }
+
+  return { triggeredMidnight };
+}
+
 export function startBotServer(): void {
   const app = PatternApp();
   app.use(express.json());
@@ -110,46 +147,46 @@ export function startBotServer(): void {
   });
 
   app.post('/dev/advance-day', async (req: Request, res: Response) => {
-    advanceDay();
-    const newOffset = getOffsetMs();
-    const currentDevTime = devNow().toISOString();
-
     const clientId = process.env.BOT_CLIENT_ID;
-    if (clientId) {
-      try {
-        await flushPendingBatch(clientId);
-        loadClient(clientId, currentDevTime);
-      } catch (err) {
-        console.error('[dev] Error running post-advance actions:', err);
+    let lastTriggeredMidnight = false;
+
+    // Loop 24 times to simulate 24 sequential hourly ticks
+    for (let i = 0; i < 24; i++) {
+      advance1Hour();
+      if (clientId) {
+        try {
+          const result = await executeHourlyTick(clientId, devNow());
+          if (result.triggeredMidnight) {
+            lastTriggeredMidnight = true;
+          }
+        } catch (err) {
+          console.error(
+            `[dev] Error running hourly tick during day advance (hour ${i + 1}):`,
+            err,
+          );
+        }
       }
     }
 
     res.json({
       success: true,
-      offsetMs: newOffset,
-      devTime: currentDevTime,
+      offsetMs: getOffsetMs(),
+      devTime: devNow().toISOString(),
+      triggeredMidnight: lastTriggeredMidnight,
     });
   });
 
   app.post('/dev/advance-1hour', async (req: Request, res: Response) => {
     advance1Hour();
-    const hourAfter = devNow().getHours();
-
+    const now = devNow();
     let triggeredMidnight = false;
 
     const clientId = process.env.BOT_CLIENT_ID;
     if (clientId) {
       try {
-        console.log(`[dev] +1hour advanced clock, flushing pending batch for "${clientId}"...`);
-        await flushPendingBatch(clientId);
-
-        if (hourAfter === 0) {
-          console.log(
-            `[dev] Crossed midnight — running compliance day-transition for "${clientId}"`,
-          );
-          loadClient(clientId, devNow().toISOString());
-          triggeredMidnight = true;
-        }
+        console.log(`[dev] +1hour advanced clock, running hourly tick for "${clientId}"...`);
+        const result = await executeHourlyTick(clientId, now);
+        triggeredMidnight = result.triggeredMidnight;
       } catch (err) {
         console.error('[dev] Error running post-advance-1hour actions:', err);
       }
@@ -158,7 +195,7 @@ export function startBotServer(): void {
     res.json({
       success: true,
       offsetMs: getOffsetMs(),
-      devTime: devNow().toISOString(),
+      devTime: now.toISOString(),
       crossedHourBoundary: true,
       triggeredMidnight,
     });

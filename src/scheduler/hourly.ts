@@ -1,16 +1,12 @@
 import cron, { ScheduledTask } from 'node-cron';
-import { loadClient } from '../state/store.js';
-import { flushPendingBatch } from '../bot/bot.js';
 import { devNow } from '../dev/clock.js';
+import { executeHourlyTick } from '../bot/bot.js';
 
 /**
  * Starts the hourly scheduler that runs at the top of every hour.
  *
- * On each tick it:
- *   1. Flushes any pending message batch for the configured client (no-op if queue is empty).
- *   2. At midnight only (hour === 0), runs the compliance day-transition check via loadClient.
- *
- * This replaces the former midnight-only scheduler and the 30-minute setTimeout in bot.ts.
+ * On each tick it delegates all compliance, batch flushing, and 5pm reply checks
+ * to the shared executeHourlyTick function.
  */
 export function startHourlyScheduler(): ScheduledTask {
   console.log('Starting hourly batch + compliance scheduler (0 * * * *)...');
@@ -26,20 +22,7 @@ export function startHourlyScheduler(): ScheduledTask {
     }
 
     try {
-      // Step 1: Always flush any pending batch first, using the anchored timestamp
-      // recorded when the first message arrived.
-      await flushPendingBatch(clientId);
-
-      // Step 2: At midnight only, run the compliance day-transition check.
-      // This catches days where no message was received and marks them as Miss.
-      const isMidnight = now.getHours() === 0;
-      if (isMidnight) {
-        console.log(
-          `[Scheduler] Midnight tick — running compliance check for client "${clientId}"`,
-        );
-        loadClient(clientId);
-        console.log(`[Scheduler] Compliance check complete for client "${clientId}"`);
-      }
+      await executeHourlyTick(clientId, now);
     } catch (error) {
       console.error('[Scheduler] Error during hourly tick:', error);
     }
