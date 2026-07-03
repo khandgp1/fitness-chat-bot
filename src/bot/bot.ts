@@ -7,6 +7,7 @@ import { logMessage, getMessages, clearMessages } from '../dev/messageLog.js';
 import { getDashboardHtml } from '../dev/dashboardHtml.js';
 import { resetClient } from '../dev/resetClient.js';
 import { getLocalHour, select5pmReply } from '../response/fivePmReply.js';
+import { generateSuggestion, markSuggestionSent, getLatestSuggestion } from '../response/suggestionEngine.js';
 
 const messageQueues = new Map<string, string[]>();
 const batchStartTimestamps = new Map<string, string>();
@@ -263,6 +264,44 @@ export function startBotServer(): void {
     clearMessages();
     res.json({ success: true });
   });
+
+  app.post('/dev/api/suggestions/generate', async (req: Request, res: Response) => {
+    const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
+    try {
+      const suggestion = await generateSuggestion(clientId);
+      res.json({ success: true, suggestion });
+    } catch (err) {
+      const message = (err as Error).message;
+      if (message.includes('No new messages found')) {
+        res.status(400).json({ success: false, error: message });
+      } else {
+        res.status(500).json({ success: false, error: message });
+      }
+    }
+  });
+
+  app.post('/dev/api/suggestions/send', (req: Request, res: Response) => {
+    const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
+    const { suggestion } = req.body;
+    try {
+      const latest = getLatestSuggestion(clientId);
+      if (!latest && !suggestion) {
+        res.status(400).json({ success: false, error: 'No suggestion to send' });
+        return;
+      }
+      markSuggestionSent(clientId, suggestion);
+      res.json({ success: true, sentAt: devNow().toISOString() });
+    } catch (err) {
+      res.status(400).json({ success: false, error: (err as Error).message });
+    }
+  });
+
+  app.get('/dev/api/suggestions', (req: Request, res: Response) => {
+    const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
+    const suggestion = getLatestSuggestion(clientId);
+    res.json({ suggestion });
+  });
+
 
   app.get('/dev/dashboard', (req: Request, res: Response) => {
     const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';

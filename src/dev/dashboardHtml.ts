@@ -348,6 +348,16 @@ export function getDashboardHtml(clientId: string): string {
       border-color: var(--text-muted);
     }
 
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn:disabled:hover {
+      background-color: var(--bg-input);
+      border-color: var(--border-color);
+    }
+
     .btn-primary {
       background-color: var(--color-primary);
       border-color: var(--color-primary-hover);
@@ -530,6 +540,22 @@ export function getDashboardHtml(clientId: string): string {
             <div class="stat-card">
               <span class="stat-label">Window Position</span>
               <span class="stat-value" id="stat-window-pos">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Suggested Response Card -->
+        <div class="stat-card" id="suggestion-card">
+          <div class="section-title">Suggested Response</div>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <textarea id="suggestion-text" placeholder="No suggestion generated yet. Type here to write a custom response..." style="width: 100%; min-height: 80px;" oninput="onSuggestionInput()"></textarea>
+            <div style="display: flex; gap: 0.5rem; justify-content: space-between; align-items: center;">
+              <div class="btn-group">
+                <button class="btn btn-primary" id="btn-generate-suggestion" onclick="generateSuggestion()">💡 Generate Suggestion</button>
+                <button class="btn" id="btn-copy-suggestion" onclick="copySuggestion()" disabled>📋 Copy</button>
+                <button class="btn" id="btn-send-suggestion" onclick="sendSuggestion()" disabled>📤 Send</button>
+              </div>
+              <span class="text-sm" id="suggestion-status" style="font-weight: 500;">Ready</span>
             </div>
           </div>
         </div>
@@ -907,9 +933,172 @@ export function getDashboardHtml(clientId: string): string {
       }
     });
 
+    let currentSuggestionText = "";
+
+    async function initSuggestions() {
+      try {
+        const res = await fetch('/dev/api/suggestions');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.suggestion) {
+            updateSuggestionUI(data.suggestion.suggestion);
+          }
+        }
+      } catch (err) {
+        console.error("Error restoring suggestion:", err);
+      }
+    }
+
+    function updateSuggestionUI(text) {
+      currentSuggestionText = text;
+      const textEl = document.getElementById('suggestion-text');
+      const btnCopy = document.getElementById('btn-copy-suggestion');
+      const btnSend = document.getElementById('btn-send-suggestion');
+      
+      if (text) {
+        textEl.value = text;
+        textEl.style.color = "var(--text-bright)";
+        textEl.style.fontStyle = "normal";
+        btnCopy.disabled = false;
+        btnSend.disabled = false;
+      } else {
+        textEl.value = "";
+        textEl.style.color = "var(--text-muted)";
+        textEl.style.fontStyle = "italic";
+        btnCopy.disabled = true;
+        btnSend.disabled = true;
+      }
+    }
+
+    function onSuggestionInput() {
+      const textEl = document.getElementById('suggestion-text');
+      currentSuggestionText = textEl.value;
+      const btnCopy = document.getElementById('btn-copy-suggestion');
+      const btnSend = document.getElementById('btn-send-suggestion');
+      
+      if (currentSuggestionText.trim()) {
+        textEl.style.color = "var(--text-bright)";
+        textEl.style.fontStyle = "normal";
+        btnCopy.disabled = false;
+        btnSend.disabled = false;
+      } else {
+        textEl.style.color = "var(--text-muted)";
+        textEl.style.fontStyle = "italic";
+        btnCopy.disabled = true;
+        btnSend.disabled = true;
+      }
+    }
+
+    async function generateSuggestion() {
+      const btnGen = document.getElementById('btn-generate-suggestion');
+      const statusEl = document.getElementById('suggestion-status');
+      
+      btnGen.disabled = true;
+      statusEl.textContent = "Generating...";
+      statusEl.style.color = "var(--color-warning)";
+      
+      try {
+        const res = await fetch('/dev/api/suggestions/generate', { method: 'POST' });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          updateSuggestionUI(data.suggestion.suggestion);
+          statusEl.textContent = "Ready";
+          statusEl.style.color = "var(--text-muted)";
+        } else {
+          const errorMsg = data.error || res.statusText;
+          const textEl = document.getElementById('suggestion-text');
+          textEl.value = "Error: " + errorMsg;
+          textEl.style.color = "var(--color-danger)";
+          textEl.style.fontStyle = "italic";
+          
+          currentSuggestionText = "";
+          document.getElementById('btn-copy-suggestion').disabled = true;
+          document.getElementById('btn-send-suggestion').disabled = true;
+          
+          statusEl.textContent = "Failed";
+          statusEl.style.color = "var(--color-danger)";
+        }
+      } catch (err) {
+        console.error("Generate suggestion error:", err);
+        const textEl = document.getElementById('suggestion-text');
+        textEl.value = "Error: " + err.message;
+        textEl.style.color = "var(--color-danger)";
+        textEl.style.fontStyle = "italic";
+        
+        currentSuggestionText = "";
+        document.getElementById('btn-copy-suggestion').disabled = true;
+        document.getElementById('btn-send-suggestion').disabled = true;
+        
+        statusEl.textContent = "Failed";
+        statusEl.style.color = "var(--color-danger)";
+      } finally {
+        btnGen.disabled = false;
+      }
+    }
+
+    async function copySuggestion() {
+      if (!currentSuggestionText) return;
+      
+      const btnCopy = document.getElementById('btn-copy-suggestion');
+      const originalText = btnCopy.innerHTML;
+      
+      try {
+        await navigator.clipboard.writeText(currentSuggestionText);
+        btnCopy.innerHTML = "📋 Copied!";
+        setTimeout(() => {
+          btnCopy.innerHTML = originalText;
+        }, 2000);
+      } catch (err) {
+        console.error("Failed to copy suggestion:", err);
+        alert("Failed to copy to clipboard");
+      }
+    }
+
+    async function sendSuggestion() {
+      if (!currentSuggestionText) return;
+      
+      const btnSend = document.getElementById('btn-send-suggestion');
+      const statusEl = document.getElementById('suggestion-status');
+      
+      btnSend.disabled = true;
+      statusEl.textContent = "Sent ✓";
+      statusEl.style.color = "var(--color-success)";
+      
+      try {
+        const res = await fetch('/dev/api/suggestions/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ suggestion: currentSuggestionText })
+        });
+        if (res.ok) {
+          setTimeout(async () => {
+            updateSuggestionUI("");
+            statusEl.textContent = "Ready";
+            statusEl.style.color = "var(--text-muted)";
+            await pollData();
+          }, 1500);
+        } else {
+          const data = await res.json();
+          alert("Failed to send suggestion: " + (data.error || res.statusText));
+          btnSend.disabled = false;
+          statusEl.textContent = "Ready";
+          statusEl.style.color = "var(--text-muted)";
+        }
+      } catch (err) {
+        console.error("Send suggestion error:", err);
+        alert("Failed to send suggestion: " + err.message);
+        btnSend.disabled = false;
+        statusEl.textContent = "Ready";
+        statusEl.style.color = "var(--text-muted)";
+      }
+    }
+
     // Start polling immediately and then every 3s
     pollData();
     setInterval(pollData, 3000);
+    initSuggestions();
+
   </script>
 </body>
 </html>`;
