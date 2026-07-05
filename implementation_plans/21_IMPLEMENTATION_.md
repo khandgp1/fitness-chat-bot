@@ -2,12 +2,12 @@
 
 > **Series: Response Suggestion Feature (Plans 19–22)**
 >
-> | Plan | Component | Depends On |
-> |------|-----------|------------|
-> | [19](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/19_IMPLEMENTATION_.md) | System Prompt | — |
-> | [20](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/20_IMPLEMENTATION_.md) | Suggestion Engine | 19 |
-> | **21** | **API Endpoints** | **20** |
-> | [22](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/22_IMPLEMENTATION_.md) | Dashboard UI | 21 |
+> | Plan                                                                                                       | Component         | Depends On |
+> | ---------------------------------------------------------------------------------------------------------- | ----------------- | ---------- |
+> | [19](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/19_IMPLEMENTATION_.md) | System Prompt     | —          |
+> | [20](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/20_IMPLEMENTATION_.md) | Suggestion Engine | 19         |
+> | **21**                                                                                                     | **API Endpoints** | **20**     |
+> | [22](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/22_IMPLEMENTATION_.md) | Dashboard UI      | 21         |
 
 ---
 
@@ -24,7 +24,11 @@ Wire the suggestion engine (Plan 20) into the Express server with three new API 
 ### New Import
 
 ```typescript
-import { generateSuggestion, markSuggestionSent, getLatestSuggestion } from '../response/suggestionEngine.js';
+import {
+  generateSuggestion,
+  markSuggestionSent,
+  getLatestSuggestion,
+} from '../response/suggestionEngine.js';
 ```
 
 ### New Routes

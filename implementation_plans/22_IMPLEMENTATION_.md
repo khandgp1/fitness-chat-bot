@@ -2,12 +2,12 @@
 
 > **Series: Response Suggestion Feature (Plans 19–22)**
 >
-> | Plan | Component | Depends On |
-> |------|-----------|------------|
-> | [19](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/19_IMPLEMENTATION_.md) | System Prompt | — |
-> | [20](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/20_IMPLEMENTATION_.md) | Suggestion Engine | 19 |
-> | [21](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/21_IMPLEMENTATION_.md) | API Endpoints | 20 |
-> | **22** | **Dashboard UI** | **21** |
+> | Plan                                                                                                       | Component         | Depends On |
+> | ---------------------------------------------------------------------------------------------------------- | ----------------- | ---------- |
+> | [19](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/19_IMPLEMENTATION_.md) | System Prompt     | —          |
+> | [20](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/20_IMPLEMENTATION_.md) | Suggestion Engine | 19         |
+> | [21](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/21_IMPLEMENTATION_.md) | API Endpoints     | 20         |
+> | **22**                                                                                                     | **Dashboard UI**  | **21**     |
 
 ---
 
@@ -19,12 +19,12 @@ Add a "Suggested Response" card to the dev dashboard that lets the coach generat
 
 ## Design Decisions (from interview)
 
-| Decision | Resolution |
-|---|---|
-| Trigger | Coach clicks "Generate Suggestion" button |
-| Display | Shows suggestion text only (no source messages displayed) |
-| Actions | Generate, Copy to clipboard, Send/Mark as sent |
-| Style | Match existing dashboard card style |
+| Decision | Resolution                                                |
+| -------- | --------------------------------------------------------- |
+| Trigger  | Coach clicks "Generate Suggestion" button                 |
+| Display  | Shows suggestion text only (no source messages displayed) |
+| Actions  | Generate, Copy to clipboard, Send/Mark as sent            |
+| Style    | Match existing dashboard card style                       |
 
 ---
 
@@ -35,6 +35,7 @@ Add a "Suggested Response" card to the dev dashboard that lets the coach generat
 ### New Dashboard Card: "Suggested Response"
 
 **Layout:**
+
 ```
 ┌─────────────────────────────────────┐
 │  Suggested Response                 │

@@ -7,9 +7,9 @@ import { logMessage, getMessages } from '../dev/messageLog.js';
 import { loadClient, getDataDir } from '../state/store.js';
 
 export interface SuggestionResult {
-  suggestion: string;        // The generated draft text
-  basedOnCount: number;      // Number of client messages used as context
-  generatedAt: string;       // ISO timestamp
+  suggestion: string; // The generated draft text
+  basedOnCount: number; // Number of client messages used as context
+  generatedAt: string; // ISO timestamp
   clientId: string;
 }
 
@@ -32,7 +32,7 @@ const anthropic = new Anthropic({
  */
 export async function generateSuggestion(clientId: string): Promise<SuggestionResult> {
   const currentDevTime = devNow().toISOString();
-  
+
   // 1. Load the system prompt
   const promptPath = path.join(getDataDir(), 'suggestion-prompt.md');
   if (!fs.existsSync(promptPath)) {

@@ -7,10 +7,26 @@ import { logMessage, getMessages, clearMessages } from '../dev/messageLog.js';
 import { getDashboardHtml } from '../dev/dashboardHtml.js';
 import { resetClient } from '../dev/resetClient.js';
 import { getLocalHour, select5pmReply } from '../response/fivePmReply.js';
-import { generateSuggestion, markSuggestionSent, getLatestSuggestion } from '../response/suggestionEngine.js';
+import {
+  generateSuggestion,
+  markSuggestionSent,
+  getLatestSuggestion,
+} from '../response/suggestionEngine.js';
+import { sendTelegramReply } from './telegramBot.js';
 
 const messageQueues = new Map<string, string[]>();
 const batchStartTimestamps = new Map<string, string>();
+
+export function enqueueMessage(userId: string, message: string): void {
+  if (!messageQueues.has(userId)) {
+    messageQueues.set(userId, []);
+    batchStartTimestamps.set(userId, devNow().toISOString());
+    console.log(
+      `[Queue] New batch started for client "${userId}" — processing deferred to next hourly cron tick`,
+    );
+  }
+  messageQueues.get(userId)!.push(message);
+}
 
 async function processBatch(userId: string, anchoredTimestamp?: string): Promise<void> {
   const queue = messageQueues.get(userId);
@@ -106,6 +122,7 @@ export async function executeHourlyTick(
     const reply = select5pmReply(clientState);
     logMessage('[BOT-5PM]', reply, now.toISOString());
     console.log(`[Scheduler] 5pm reply logged for client "${clientId}": "${reply}"`);
+    await sendTelegramReply(clientId, reply);
   }
 
   return { triggeredMidnight };
@@ -135,16 +152,8 @@ export function startBotServer(): void {
     // 1. Respond with HTTP 200 OK after successful validation
     res.sendStatus(200);
 
-    // Enqueue message in-memory. Anchor the timestamp on the first message of
-    // each new batch so the effective calendar date is always correct.
-    if (!messageQueues.has(userId)) {
-      messageQueues.set(userId, []);
-      batchStartTimestamps.set(userId, devNow().toISOString());
-      console.log(
-        `[webhook] New batch started for client "${userId}" — processing deferred to next hourly cron tick`,
-      );
-    }
-    messageQueues.get(userId)!.push(message);
+    // Enqueue message in-memory
+    enqueueMessage(userId, message);
   });
 
   app.post('/dev/advance-day', async (req: Request, res: Response) => {
@@ -161,10 +170,7 @@ export function startBotServer(): void {
             lastTriggeredMidnight = true;
           }
         } catch (err) {
-          console.error(
-            `[dev] Error running hourly tick during day advance (hour ${i + 1}):`,
-            err,
-          );
+          console.error(`[dev] Error running hourly tick during day advance (hour ${i + 1}):`, err);
         }
       }
     }
@@ -280,7 +286,7 @@ export function startBotServer(): void {
     }
   });
 
-  app.post('/dev/api/suggestions/send', (req: Request, res: Response) => {
+  app.post('/dev/api/suggestions/send', async (req: Request, res: Response) => {
     const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
     const { suggestion } = req.body;
     try {
@@ -289,7 +295,9 @@ export function startBotServer(): void {
         res.status(400).json({ success: false, error: 'No suggestion to send' });
         return;
       }
+      const textToSend = suggestion ?? latest!.suggestion;
       markSuggestionSent(clientId, suggestion);
+      await sendTelegramReply(clientId, textToSend);
       res.json({ success: true, sentAt: devNow().toISOString() });
     } catch (err) {
       res.status(400).json({ success: false, error: (err as Error).message });
@@ -301,7 +309,6 @@ export function startBotServer(): void {
     const suggestion = getLatestSuggestion(clientId);
     res.json({ suggestion });
   });
-
 
   app.get('/dev/dashboard', (req: Request, res: Response) => {
     const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';

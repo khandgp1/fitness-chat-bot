@@ -7,14 +7,17 @@ Update the Suggested Response UI to make it manually editable, allowing coaches 
 ## Proposed Changes
 
 #### [MODIFY] [suggestionEngine.ts](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/src/response/suggestionEngine.ts)
+
 - Update `markSuggestionSent(clientId: string, customText?: string): void` to support logging `customText` if provided.
 - Allow sending a message even if no suggestion currently exists in the map, as long as `customText` is defined.
 
 #### [MODIFY] [bot.ts](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/src/bot/bot.ts)
+
 - Update `/dev/api/suggestions/send` POST route to parse `{ suggestion }` from `req.body`.
 - Pass that string to `markSuggestionSent(clientId, customText)`.
 
 #### [MODIFY] [dashboardHtml.ts](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/src/dev/dashboardHtml.ts)
+
 - Replace static suggestion box container with a styled `<textarea>` tag.
 - Implement inline styling to match existing dashboard style.
 - Wire up the `oninput` handler `onSuggestionInput()` to update `currentSuggestionText` and toggle the Copy and Send buttons.

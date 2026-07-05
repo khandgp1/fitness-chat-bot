@@ -34,10 +34,12 @@ Make the 5pm local time compliance auto-reply work correctly when using the deve
 ## Verification Plan
 
 ### Automated Checks
+
 - `npm run build` — TypeScript must compile with zero errors.
 - `npm run lint` — no lint violations.
 
 ### Manual Verification
+
 1. **Advance 1 Hour (Case 1)**: Send a valid GM, advance clock hour-by-hour until 5pm. Verify `"G"` is logged from `[BOT-5PM]`.
 2. **Advance 1 Hour (Case 2)**: Ensure streak > 0. Do NOT send a GM. Advance hour-by-hour until 5pm. Verify `"G. You got this. Keep going"` is logged.
 3. **Advance Day**: Start with streak > 0. Do NOT send a GM. Call `/dev/advance-day`. Verify `"G. You got this. Keep going"` was logged at 5pm and the compliance day-transition occurred at midnight.

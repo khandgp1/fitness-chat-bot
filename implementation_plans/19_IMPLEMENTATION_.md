@@ -2,12 +2,12 @@
 
 > **Series: Response Suggestion Feature (Plans 19–22)**
 >
-> | Plan | Component | Depends On |
-> |------|-----------|------------|
-> | **19** | **System Prompt** | — |
-> | [20](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/20_IMPLEMENTATION_.md) | Suggestion Engine | 19 |
-> | [21](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/21_IMPLEMENTATION_.md) | API Endpoints | 20 |
-> | [22](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/22_IMPLEMENTATION_.md) | Dashboard UI | 21 |
+> | Plan                                                                                                       | Component         | Depends On |
+> | ---------------------------------------------------------------------------------------------------------- | ----------------- | ---------- |
+> | **19**                                                                                                     | **System Prompt** | —          |
+> | [20](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/20_IMPLEMENTATION_.md) | Suggestion Engine | 19         |
+> | [21](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/21_IMPLEMENTATION_.md) | API Endpoints     | 20         |
+> | [22](file:///Users/khandpv1/Desktop/.AntiGrav/fitness-chat-bot/implementation_plans/22_IMPLEMENTATION_.md) | Dashboard UI      | 21         |
 
 ---
 
@@ -19,12 +19,12 @@ Create the coaching persona system prompt file that the suggestion engine will l
 
 ## Design Decisions (from interview)
 
-| Decision | Resolution |
-|---|---|
-| Coaching tone | Direct, minimal, 1-2 sentences, no emojis |
-| Follow-up questions | Can ask short follow-up questions when relevant |
-| Prompt location | `data/suggestion-prompt.md` (outside `src/`, editable without rebuild) |
-| Prompt structure | Role + tone rules + length constraint + style rules + context instructions + example outputs |
+| Decision            | Resolution                                                                                   |
+| ------------------- | -------------------------------------------------------------------------------------------- |
+| Coaching tone       | Direct, minimal, 1-2 sentences, no emojis                                                    |
+| Follow-up questions | Can ask short follow-up questions when relevant                                              |
+| Prompt location     | `data/suggestion-prompt.md` (outside `src/`, editable without rebuild)                       |
+| Prompt structure    | Role + tone rules + length constraint + style rules + context instructions + example outputs |
 
 ---
 
