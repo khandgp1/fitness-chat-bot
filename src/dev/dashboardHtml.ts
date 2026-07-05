@@ -1,4 +1,16 @@
+import { clientExists, loadClient } from '../state/store.js';
+
 export function getDashboardHtml(clientId: string): string {
+  let clientHandle = clientId;
+  try {
+    if (clientExists(clientId)) {
+      const state = loadClient(clientId);
+      clientHandle = state.client_handle || clientId;
+    }
+  } catch (err) {
+    console.error(`Error loading client handle for dashboard:`, err);
+  }
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -471,6 +483,12 @@ export function getDashboardHtml(clientId: string): string {
       <span class="brand-icon">⚡</span>
       <span class="brand-title">GM Ritual Bot — Dev Dashboard</span>
     </div>
+    <div class="client-selector-container" style="display: flex; align-items: center; gap: 0.5rem; margin-left: auto; margin-right: 1.5rem;">
+      <label for="client-select" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Client:</label>
+      <select id="client-select" onchange="onClientChange()" style="padding: 0.4rem 0.8rem; background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-bright); border-radius: 6px; outline: none; font-weight: 600; cursor: pointer; transition: border-color 0.15s ease;">
+        <!-- Populated dynamically -->
+      </select>
+    </div>
     <div class="clock-display">
       <span>Dev Clock:</span>
       <span class="clock-time" id="dev-time-display">Loading...</span>
@@ -482,10 +500,9 @@ export function getDashboardHtml(clientId: string): string {
     <!-- LEFT PANEL: Chat Log -->
     <div class="panel panel-left">
       <div class="panel-header">
-        <span>Webhook Message Stream</span>
+        <span id="webhook-stream-title">Webhook Message Stream — ${clientHandle}</span>
         <div style="display: flex; align-items: center; gap: 0.75rem;">
           <span class="text-sm" id="messages-count">0 messages</span>
-          <button class="btn btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; border-radius: 4px;" onclick="clearMessageStream()">Clear</button>
         </div>
       </div>
       <div class="panel-content">
@@ -569,11 +586,12 @@ export function getDashboardHtml(clientId: string): string {
                 <button class="btn btn-primary" onclick="triggerClockAction('advance-day')">☀️ Advance 1 Day</button>
                 <button class="btn" onclick="triggerClockAction('advance-1hour')">⏱️ Advance 1 Hour</button>
                 <button class="btn" onclick="triggerClockAction('reset-clock')">🔄 Reset Clock</button>
+                <button class="btn" onclick="triggerComplianceCheck()">🔍 Run Compliance Check</button>
               </div>
               <button class="btn btn-danger" onclick="triggerResetClient()">🗑️ Reset Client Data</button>
             </div>
             <div class="text-sm">
-              Note: Advancing the day will flush pending batches. Advancing 1 hour will also flush pending batches. Resetting client data deletes and re-creates the client state with fresh defaults.
+              Note: Advancing the day will flush pending batches. Advancing 1 hour will also flush pending batches. Resetting client data deletes and re-creates the client state with fresh defaults. Run Compliance Check triggers the midnight day-transition logic using the current dev clock time without advancing the clock.
             </div>
           </div>
         </div>
@@ -657,28 +675,77 @@ export function getDashboardHtml(clientId: string): string {
   </div>
 
   <script>
+    let selectedClientId = "${clientId}";
+    let selectedClientHandle = "";
     let lastStateHash = "";
     let lastMessagesHash = "";
+    let lastRosterHash = "";
 
     // Polling function
     async function pollData() {
       try {
-        const [stateRes, messagesRes] = await Promise.all([
-          fetch('/dev/api/state'),
-          fetch('/dev/api/messages')
+        const [stateRes, messagesRes, rosterRes] = await Promise.all([
+          fetch(\`/dev/api/state?clientId=\${encodeURIComponent(selectedClientId)}\`),
+          fetch(\`/dev/api/messages?clientId=\${encodeURIComponent(selectedClientId)}\`),
+          fetch('/dev/api/roster')
         ]);
 
-        if (stateRes.ok && messagesRes.ok) {
+        if (stateRes.ok && messagesRes.ok && rosterRes.ok) {
           const stateData = await stateRes.json();
           const messagesData = await messagesRes.json();
+          const rosterData = await rosterRes.json();
 
           updateClockDisplay(stateData.clock);
+          updateRosterDropdown(rosterData.clients);
           updateBotState(stateData.state);
           updateMessages(messagesData);
         }
       } catch (err) {
         console.error("Polling error:", err);
       }
+    }
+
+    function updateRosterDropdown(clients) {
+      const rosterHash = JSON.stringify(clients);
+      if (rosterHash === lastRosterHash) return;
+      lastRosterHash = rosterHash;
+
+      const select = document.getElementById('client-select');
+      if (clients && clients.length > 0) {
+        if (!clients.some(c => c.id === selectedClientId)) {
+          selectedClientId = clients[0].id;
+          document.getElementById('userId').value = selectedClientId;
+        }
+        select.innerHTML = clients.map(c => 
+          \`<option value="\${c.id}" \${c.id === selectedClientId ? 'selected' : ''}>\${c.handle}</option>\`
+        ).join('');
+        const activeClient = clients.find(c => c.id === selectedClientId);
+        const activeHandle = activeClient ? activeClient.handle : selectedClientId;
+        document.getElementById('webhook-stream-title').textContent = \`Webhook Message Stream — \${activeHandle}\`;
+      } else {
+        select.innerHTML = '<option value="">No clients found</option>';
+        document.getElementById('webhook-stream-title').textContent = 'Webhook Message Stream';
+      }
+    }
+
+    function onClientChange() {
+      const select = document.getElementById('client-select');
+      selectedClientId = select.value;
+      
+      // Sync webhook form Client ID
+      document.getElementById('userId').value = selectedClientId;
+      
+      // Update webhook stream title
+      const selectedOption = select.options[select.selectedIndex];
+      const selectedHandle = selectedOption ? selectedOption.text : selectedClientId;
+      document.getElementById('webhook-stream-title').textContent = \`Webhook Message Stream — \${selectedHandle}\`;
+      
+      // Force UI refresh by clearing hashes
+      lastStateHash = "";
+      lastMessagesHash = "";
+      
+      pollData();
+      initSuggestions();
     }
 
     function updateClockDisplay(clock) {
@@ -692,7 +759,7 @@ export function getDashboardHtml(clientId: string): string {
         const hours = Math.floor(Math.abs(offsetSec) / 3600);
         const mins = Math.floor((Math.abs(offsetSec) % 3600) / 60);
         const secs = Math.abs(offsetSec) % 60;
-        offsetText = \`Offset: \${offsetSec > 0 ? '+' : '-'}\${hours}h \${mins}m \${secs}s\`;
+        offsetText = \`Offset: \${offsetSec > 0 ? '+' : '-'}\dots\${hours}h \${mins}m \${secs}s\`;
       }
       document.getElementById('dev-offset-display').textContent = offsetText;
     }
@@ -705,7 +772,8 @@ export function getDashboardHtml(clientId: string): string {
       if (stateHash === lastStateHash) return;
       lastStateHash = stateHash;
 
-      document.getElementById('state-client-id').textContent = state.client_id || 'Unknown';
+      selectedClientHandle = state.client_handle || state.client_id || 'Unknown';
+      document.getElementById('state-client-id').textContent = selectedClientHandle;
       
       // Compliance Status Badge
       const statusElement = document.getElementById('stat-compliance');
@@ -799,9 +867,11 @@ export function getDashboardHtml(clientId: string): string {
       const shouldScroll = chatLog.scrollTop + chatLog.clientHeight >= chatLog.scrollHeight - 50;
 
       chatLog.innerHTML = messages.map(msg => {
+        const displayName = msg.direction === 'outbound' ? '[BOT]' : (selectedClientHandle || msg.userId);
+        const userStyle = msg.direction === 'outbound' ? 'color: var(--color-info); font-weight: 700;' : 'color: var(--color-primary); font-weight: 600;';
         return \`<div class="chat-message">
           <div class="chat-message-header">
-            <span class="chat-user">\${escapeHtml(msg.userId)}</span>
+            <span class="chat-user" style="\${userStyle}">\${escapeHtml(displayName)}</span>
             <span>\${formatTimestamp(msg.timestamp)}</span>
           </div>
           <div class="chat-text">\${escapeHtml(msg.message)}</div>
@@ -826,6 +896,7 @@ export function getDashboardHtml(clientId: string): string {
       }
     }
 
+    // Helper to escape HTML characters
     function escapeHtml(str) {
       if (!str) return '';
       return str
@@ -853,7 +924,7 @@ export function getDashboardHtml(clientId: string): string {
 
     async function triggerClockAction(action) {
       try {
-        const res = await fetch(\`/dev/\${action}\`, { method: 'POST' });
+        const res = await fetch(\`/dev/\${action}?clientId=\${encodeURIComponent(selectedClientId)}\`, { method: 'POST' });
         if (res.ok) {
           await pollData();
         }
@@ -862,20 +933,22 @@ export function getDashboardHtml(clientId: string): string {
       }
     }
 
-    async function clearMessageStream() {
+    async function triggerComplianceCheck() {
       try {
-        const res = await fetch('/dev/api/messages/clear', { method: 'POST' });
+        const res = await fetch(\`/dev/run-compliance-check?clientId=\${encodeURIComponent(selectedClientId)}\`, { method: 'POST' });
         if (res.ok) {
-          lastMessagesHash = "";
           await pollData();
         } else {
-          alert('Failed to clear messages: ' + res.statusText);
+          const errData = await res.json();
+          alert('Compliance check failed: ' + (errData.error || res.statusText));
         }
       } catch (err) {
-        console.error('Clear messages error:', err);
-        alert('Failed to clear messages: ' + err.message);
+        console.error('Compliance check error:', err);
+        alert('Compliance check error: ' + err.message);
       }
     }
+
+
 
     // Send on Enter
     document.getElementById('message').addEventListener('keydown', (e) => {
@@ -890,7 +963,7 @@ export function getDashboardHtml(clientId: string): string {
 
     async function triggerResetClient() {
       try {
-        const res = await fetch('/dev/reset', { method: 'POST' });
+        const res = await fetch(\`/dev/reset?clientId=\${encodeURIComponent(selectedClientId)}\`, { method: 'POST' });
         if (res.ok) {
           // Clear hashes to force full UI refresh
           lastStateHash = "";
@@ -937,11 +1010,13 @@ export function getDashboardHtml(clientId: string): string {
 
     async function initSuggestions() {
       try {
-        const res = await fetch('/dev/api/suggestions');
+        const res = await fetch(\`/dev/api/suggestions?clientId=\${encodeURIComponent(selectedClientId)}\`);
         if (res.ok) {
           const data = await res.json();
           if (data.suggestion) {
             updateSuggestionUI(data.suggestion.suggestion);
+          } else {
+            updateSuggestionUI("");
           }
         }
       } catch (err) {
@@ -998,7 +1073,7 @@ export function getDashboardHtml(clientId: string): string {
       statusEl.style.color = "var(--color-warning)";
       
       try {
-        const res = await fetch('/dev/api/suggestions/generate', { method: 'POST' });
+        const res = await fetch(\`/dev/api/suggestions/generate?clientId=\${encodeURIComponent(selectedClientId)}\`, { method: 'POST' });
         const data = await res.json();
         
         if (res.ok && data.success) {
@@ -1066,7 +1141,7 @@ export function getDashboardHtml(clientId: string): string {
       statusEl.style.color = "var(--color-success)";
       
       try {
-        const res = await fetch('/dev/api/suggestions/send', {
+        const res = await fetch(\`/dev/api/suggestions/send?clientId=\${encodeURIComponent(selectedClientId)}\`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ suggestion: currentSuggestionText })

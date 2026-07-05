@@ -1,5 +1,14 @@
 export type ComplianceStatus = 'Compliant' | 'Miss' | 'Pending Review' | 'Unknown';
 
+export interface RosterEntry {
+  id: string;
+  timezone: string; // IANA timezone string
+}
+
+export interface RosterFile {
+  clients: RosterEntry[];
+}
+
 export interface GmLogEntry {
   timestamp: string; // ISO 8601 string
   message: string;
@@ -22,6 +31,7 @@ export interface ClassificationLogEntry {
 
 export interface ClientState {
   client_id: string;
+  client_handle?: string;
   timezone: string; // IANA timezone string
   gm_received_today: boolean;
   compliance_status: ComplianceStatus;

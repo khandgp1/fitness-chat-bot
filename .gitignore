@@ -3,3 +3,4 @@ dist/
 .env
 data/
 !data/reasoning_memory.json
+data/roster.json

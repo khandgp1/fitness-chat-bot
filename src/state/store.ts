@@ -42,11 +42,17 @@ export function loadClient(clientId: string, timestamp?: string): ClientState {
   const rawData = fs.readFileSync(filePath, 'utf-8');
   const state = JSON.parse(rawData) as ClientState;
 
+  let handleUpdated = false;
+  if (!state.client_handle) {
+    state.client_handle = state.client_id;
+    handleUpdated = true;
+  }
+
   const currentLocalDate = getLocalDateStr(state.timezone, timestamp);
   const originalLastActiveDate = state.last_active_date;
 
   const transitionedState = transitionClientDays(state, currentLocalDate);
-  if (transitionedState.last_active_date !== originalLastActiveDate) {
+  if (transitionedState.last_active_date !== originalLastActiveDate || handleUpdated) {
     saveClient(transitionedState);
   }
   return transitionedState;
@@ -82,6 +88,7 @@ export function createClient(clientId: string, timezone: string, timestamp?: str
 
   const newState: ClientState = {
     client_id: clientId,
+    client_handle: clientId,
     timezone,
     gm_received_today: false,
     compliance_status: 'Unknown',

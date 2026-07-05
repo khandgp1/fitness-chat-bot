@@ -21,6 +21,7 @@ function runTests(): void {
   const state: ClientState = createClient(testClientId, 'America/New_York');
 
   assert.equal(state.client_id, testClientId);
+  assert.equal(state.client_handle, testClientId);
   assert.equal(state.timezone, 'America/New_York');
   assert.equal(state.gm_received_today, false);
   assert.equal(state.compliance_status, 'Unknown');
@@ -75,6 +76,7 @@ function runTests(): void {
   const loadedState = loadClient(testClientId);
 
   assert.equal(loadedState.client_id, state.client_id);
+  assert.equal(loadedState.client_handle, state.client_handle);
   assert.equal(loadedState.timezone, state.timezone);
   assert.equal(loadedState.gm_received_today, state.gm_received_today);
   assert.equal(loadedState.compliance_status, state.compliance_status);

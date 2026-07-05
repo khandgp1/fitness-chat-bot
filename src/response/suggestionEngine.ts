@@ -44,20 +44,15 @@ export async function generateSuggestion(clientId: string): Promise<SuggestionRe
   const clientState = loadClient(clientId, currentDevTime);
 
   // 3. Retrieve messages from message log since lastSentTimestamp for this client
-  const allMessages = getMessages();
   const lastSent = lastSentTimestamps.get(clientId);
 
-  const clientMessages = allMessages.filter((msg) => {
+  const clientMessages = getMessages(clientId).filter((msg) => {
     // Check if timestamp is after lastSent
     if (lastSent && msg.timestamp <= lastSent) {
       return false;
     }
-    // Filter specifically for this client ID
-    if (msg.userId !== clientId) {
-      return false;
-    }
-    // Exclude special bot/compliance logs
-    if (msg.userId === '[BOT-5PM]' || msg.userId === '[BOT-SUGGESTION]') {
+    // Filter to only inbound client messages (exclude bot responses)
+    if (msg.direction !== 'inbound') {
       return false;
     }
     return true;
@@ -126,9 +121,9 @@ export function markSuggestionSent(clientId: string, customText?: string): void 
   // Update lastSentTimestamp
   lastSentTimestamps.set(clientId, currentDevTime);
 
-  // Log sent suggestion to message log as [BOT-SUGGESTION]
+  // Log sent suggestion to message log as [BOT]
   const textToSend = customText !== undefined ? customText : suggestion!.suggestion;
-  logMessage('[BOT-SUGGESTION]', textToSend, currentDevTime);
+  logMessage(clientId, '[BOT]', textToSend, currentDevTime, 'outbound');
 
   // Clear stored suggestion
   suggestions.delete(clientId);

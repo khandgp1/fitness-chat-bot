@@ -3,6 +3,7 @@ import { enqueueMessage } from './bot.js';
 import { devNow } from '../dev/clock.js';
 import { logMessage } from '../dev/messageLog.js';
 import { clientExists, createClient } from '../state/store.js';
+import { registerClient } from '../state/clientRoster.js';
 
 const telegramChatIds = new Map<string, number>();
 let botInstance: Bot | null = null;
@@ -34,13 +35,14 @@ export function startTelegramBot(): void {
 
     console.log(`[Telegram] Received message from "${userId}": "${message}"`);
 
-    // Log the message in memory for the dev dashboard
-    logMessage(userId, message, devNow().toISOString());
+    // Log the message for the dev dashboard
+    logMessage(userId, userId, message, devNow().toISOString(), 'inbound');
 
     // Auto-register client state if it doesn't exist
     if (!clientExists(userId)) {
       console.log(`[Telegram] Client "${userId}" does not exist. Creating new client...`);
       createClient(userId, 'America/New_York');
+      registerClient(userId);
     }
 
     // Enqueue message into the batch queue

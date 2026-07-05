@@ -3,7 +3,7 @@ import { clientExists, createClient, loadClient, saveClient } from '../state/sto
 import { classifyMessage } from '../classifier/classify.js';
 import { handleGmResult } from '../compliance/compliance.js';
 import { devNow, advance1Hour, resetClock, getOffsetMs } from '../dev/clock.js';
-import { logMessage, getMessages, clearMessages } from '../dev/messageLog.js';
+import { logMessage, getMessages } from '../dev/messageLog.js';
 import { getDashboardHtml } from '../dev/dashboardHtml.js';
 import { resetClient } from '../dev/resetClient.js';
 import { getLocalHour, select5pmReply } from '../response/fivePmReply.js';
@@ -13,8 +13,21 @@ import {
   getLatestSuggestion,
 } from '../response/suggestionEngine.js';
 import { sendTelegramReply } from './telegramBot.js';
+import { getRoster } from '../state/clientRoster.js';
 
 const messageQueues = new Map<string, string[]>();
+
+function getDevClientId(): string {
+  return getRoster()[0] ?? 'sandbox-user';
+}
+
+function resolveClientId(req: Request): string {
+  const queryId = req.query.clientId;
+  if (typeof queryId === 'string' && queryId.trim()) {
+    return queryId.trim();
+  }
+  return getDevClientId();
+}
 const batchStartTimestamps = new Map<string, string>();
 
 export function enqueueMessage(userId: string, message: string): void {
@@ -118,12 +131,12 @@ export async function executeHourlyTick(
   // Step 3: At 5pm local time, select and log the daily compliance reply
   const clientState = loadClient(clientId, now.toISOString());
   const localHour = getLocalHour(clientState.timezone);
-  if (localHour === 17) {
-    const reply = select5pmReply(clientState);
-    logMessage('[BOT-5PM]', reply, now.toISOString());
-    console.log(`[Scheduler] 5pm reply logged for client "${clientId}": "${reply}"`);
-    await sendTelegramReply(clientId, reply);
-  }
+    if (localHour === 17) {
+      const reply = select5pmReply(clientState);
+      logMessage(clientId, '[BOT]', reply, now.toISOString(), 'outbound');
+      console.log(`[Scheduler] 5pm reply logged for client "${clientId}": "${reply}"`);
+      await sendTelegramReply(clientId, reply);
+    }
 
   return { triggeredMidnight };
 }
@@ -146,8 +159,8 @@ export function startBotServer(): void {
 
     console.log(`[webhook] Received message from "${userId}": "${message}"`);
 
-    // Log the message in memory for the dev dashboard
-    logMessage(userId, message, devNow().toISOString());
+    // Log the message for the dev dashboard
+    logMessage(userId, userId, message, devNow().toISOString(), 'inbound');
 
     // 1. Respond with HTTP 200 OK after successful validation
     res.sendStatus(200);
@@ -157,7 +170,7 @@ export function startBotServer(): void {
   });
 
   app.post('/dev/advance-day', async (req: Request, res: Response) => {
-    const clientId = process.env.BOT_CLIENT_ID;
+    const clientId = resolveClientId(req);
     let lastTriggeredMidnight = false;
 
     // Loop 24 times to simulate 24 sequential hourly ticks
@@ -188,7 +201,7 @@ export function startBotServer(): void {
     const now = devNow();
     let triggeredMidnight = false;
 
-    const clientId = process.env.BOT_CLIENT_ID;
+    const clientId = resolveClientId(req);
     if (clientId) {
       try {
         console.log(`[dev] +1hour advanced clock, running hourly tick for "${clientId}"...`);
@@ -217,8 +230,27 @@ export function startBotServer(): void {
     });
   });
 
+  app.post('/dev/run-compliance-check', (req: Request, res: Response) => {
+    const clientId = resolveClientId(req);
+    try {
+      const now = devNow();
+      const state = loadClient(clientId, now.toISOString());
+      saveClient(state);
+      console.log(`[dev] Manual compliance check for "${clientId}" — status: ${state.compliance_status}`);
+      res.json({
+        success: true,
+        clientId,
+        compliance_status: state.compliance_status,
+        devTime: now.toISOString(),
+      });
+    } catch (err) {
+      console.error('[dev] Error running manual compliance check:', err);
+      res.status(500).json({ error: `Error running compliance check: ${(err as Error).message}` });
+    }
+  });
+
   app.post('/dev/reset', (req: Request, res: Response) => {
-    const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
+    const clientId = resolveClientId(req);
     console.log(`[dev] Wiping client state for "${clientId}"...`);
     try {
       const newState = resetClient(clientId);
@@ -240,8 +272,24 @@ export function startBotServer(): void {
     });
   });
 
+  app.get('/dev/api/roster', (req: Request, res: Response) => {
+    const clients = getRoster().map(id => {
+      let handle = id;
+      try {
+        if (clientExists(id)) {
+          const state = loadClient(id);
+          handle = state.client_handle || id;
+        }
+      } catch (err) {
+        console.error(`Error loading state for roster client ${id}:`, err);
+      }
+      return { id, handle };
+    });
+    res.json({ clients });
+  });
+
   app.get('/dev/api/state', (req: Request, res: Response) => {
-    const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
+    const clientId = resolveClientId(req);
     let state;
     try {
       if (!clientExists(clientId)) {
@@ -263,16 +311,12 @@ export function startBotServer(): void {
   });
 
   app.get('/dev/api/messages', (req: Request, res: Response) => {
-    res.json(getMessages());
-  });
-
-  app.post('/dev/api/messages/clear', (req: Request, res: Response) => {
-    clearMessages();
-    res.json({ success: true });
+    const clientId = resolveClientId(req);
+    res.json(getMessages(clientId));
   });
 
   app.post('/dev/api/suggestions/generate', async (req: Request, res: Response) => {
-    const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
+    const clientId = resolveClientId(req);
     try {
       const suggestion = await generateSuggestion(clientId);
       res.json({ success: true, suggestion });
@@ -287,7 +331,7 @@ export function startBotServer(): void {
   });
 
   app.post('/dev/api/suggestions/send', async (req: Request, res: Response) => {
-    const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
+    const clientId = resolveClientId(req);
     const { suggestion } = req.body;
     try {
       const latest = getLatestSuggestion(clientId);
@@ -305,13 +349,13 @@ export function startBotServer(): void {
   });
 
   app.get('/dev/api/suggestions', (req: Request, res: Response) => {
-    const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
+    const clientId = resolveClientId(req);
     const suggestion = getLatestSuggestion(clientId);
     res.json({ suggestion });
   });
 
   app.get('/dev/dashboard', (req: Request, res: Response) => {
-    const clientId = process.env.BOT_CLIENT_ID || 'sandbox-user';
+    const clientId = resolveClientId(req);
     res.send(getDashboardHtml(clientId));
   });
 

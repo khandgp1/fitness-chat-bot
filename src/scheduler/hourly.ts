@@ -1,6 +1,7 @@
 import cron, { ScheduledTask } from 'node-cron';
 import { devNow } from '../dev/clock.js';
 import { executeHourlyTick } from '../bot/bot.js';
+import { getRoster } from '../state/clientRoster.js';
 
 /**
  * Starts the hourly scheduler that runs at the top of every hour.
@@ -15,16 +16,23 @@ export function startHourlyScheduler(): ScheduledTask {
     const now = devNow();
     console.log(`[Scheduler] Hourly tick at ${now.toISOString()}`);
 
-    const clientId = process.env.BOT_CLIENT_ID;
-    if (!clientId) {
-      console.warn('[Scheduler] BOT_CLIENT_ID is not configured in environment. Skipping tick.');
+    const clients = getRoster();
+    if (clients.length === 0) {
+      console.warn('[Scheduler] CLIENT_ROSTER is empty. Skipping tick.');
       return;
     }
 
+    console.log(`[Scheduler] Ticking ${clients.length} client(s): ${clients.join(', ')}`);
     try {
-      await executeHourlyTick(clientId, now);
+      await Promise.all(
+        clients.map((clientId) =>
+          executeHourlyTick(clientId, now).catch((err) =>
+            console.error(`[Scheduler] Error during tick for "${clientId}":`, err),
+          ),
+        ),
+      );
     } catch (error) {
-      console.error('[Scheduler] Error during hourly tick:', error);
+      console.error('[Scheduler] Unexpected error during hourly tick execution:', error);
     }
   });
 

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { clientExists, loadClient, createClient, getClientFilePath } from '../state/store.js';
 import { ClientState } from '../state/schema.js';
+import { clearMessages } from './messageLog.js';
 
 /**
  * Resets a client's state to fresh defaults.
@@ -33,6 +34,9 @@ export function resetClient(clientId: string): ClientState {
   } else {
     console.log(`[Reset] Client "${clientId}" state file did not exist.`);
   }
+
+  // Always clear message log for the client on reset
+  clearMessages(clientId);
 
   // Create client with the preserved/default timezone
   const newState = createClient(clientId, timezone);
