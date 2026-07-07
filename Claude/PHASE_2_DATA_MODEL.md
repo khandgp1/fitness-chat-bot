@@ -1,6 +1,6 @@
 # Phase 2 — Data Model & Persistence Specification
 
-**Status:** Presented for operator sign-off
+**Status:** ✅ APPROVED by operator — 2026-07-07
 **Date:** 2026-07-07
 **Depends on:** `PHASE_1_ARCHITECTURE.md` (approved; decisions D1–D22 referenced throughout)
 **Scope:** Complete data schema, storage abstraction, narrative/prompt file formats, LLM context strategy, and fresh-start bootstrap. Agent prompts and tool schemas are Phase 3; build order is Phase 4.
@@ -75,6 +75,8 @@ CREATE TABLE batches (                               -- the debounced processing
                     -- response shaping only — never a compliance input (D23)
   router_confidence REAL,
   needs_response    INTEGER NOT NULL DEFAULT 0,      -- reply-worthy per router; drives triage
+  dismissed_at      TEXT,                            -- operator dismissed the awaiting-response
+                                                     -- item (added Phase 3, P3-8)
   created_at        TEXT NOT NULL,
   processed_at      TEXT
 );
@@ -94,6 +96,9 @@ CREATE TABLE compliance_days (                       -- the state machine's pers
   streak_after         INTEGER,                      -- streak once resolved; NULL = hold
   resolved_at          TEXT,
   resolving_message_id TEXT REFERENCES messages(id), -- the GM that made it compliant
+  followup_state       TEXT CHECK (followup_state IN ('pending','handled','dismissed')),
+                                                     -- NULL unless day closed as miss;
+                                                     -- miss follow-up triage (Phase 3, P3-2)
   PRIMARY KEY (client_id, date)
 );
 
@@ -288,7 +293,8 @@ Rules:
 
 | Surface | Query shape |
 |---|---|
-| Triage: awaiting response | processed batches, `needs_response=1`, no covering non-stale draft — join `batches`→`drafts` |
+| Triage: awaiting response | processed batches, `needs_response=1`, `dismissed_at` NULL, no covering non-stale draft — join `batches`→`drafts` |
+| Triage: miss follow-ups | `compliance_days WHERE followup_state='pending'` |
 | Triage: pending drafts | `drafts WHERE status='draft'` |
 | Triage: unverified contacts | `clients WHERE status='pending_verification'` |
 | Triage: narrative staleness | flags + reply-worthy batches since `watermark_ts`, per client, vs threshold |
