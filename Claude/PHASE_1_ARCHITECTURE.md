@@ -1,6 +1,6 @@
 # Phase 1 — System Architecture Document
 
-**Status:** Presented for operator sign-off
+**Status:** ✅ APPROVED by operator — 2026-07-07
 **Date:** 2026-07-07
 **Scope:** High-level system architecture for the coaching bot redesign. Detailed data schemas (Phase 2), agent prompts/tools (Phase 3), and implementation plans (Phase 4+) are out of scope here.
 
@@ -92,20 +92,21 @@ Every step persists its result before proceeding; a crash at any point resumes c
      - blocked → ignore; STOP
 4. Debounce: wait ~2–3 min after the client's last message,
    then process the burst as one batch
-5. Compliance short-circuit: if today is already Compliant,
-   SKIP the GM classifier entirely
-6. Router (Haiku) classifies intent: gm_checkin | coaching_question |
-   status_update | other
-7. GM path → GM classifier (if not short-circuited) → compliance
-   state machine update
-8. Anything needing a reply → surfaced in the triage queue as an
-   "awaiting response" item (labeled with router intent)
-9. Operator triggers a draft (autonomy Level 0 — §2.4) → Primary
+5. Two independent Haiku calls run IN PARALLEL on the batch:
+   a. GM CLASSIFIER — runs on every batch until today is Compliant
+      (the D9 short-circuit is the only gate: a DB read, not an
+      LLM judgment) → compliance state machine update
+   b. ROUTER — response shaping only: primary_intent (gm_checkin |
+      coaching_question | status_update | other) + needs_response.
+      Never a compliance input.
+6. Batches needing a reply → surfaced in the triage queue as an
+   "awaiting response" item (labeled with primary_intent)
+7. Operator triggers a draft (autonomy Level 0 — §2.4) → Primary
    Coaching Agent → draft to approval queue → operator reviews/
    edits/sends → adapter delivers → outbound message persisted
 ```
 
-The always-automatic portion (steps 1–7) is **Haiku-only** — persistence, verification gating, routing, GM classification, and compliance updates run whether or not the operator is present, at negligible cost. The Sonnet coaching agent runs only when the operator requests a draft, until the autonomy ladder opens (§2.4).
+The always-automatic portion (steps 1–6) is **Haiku-only** — persistence, verification gating, routing, GM classification, and compliance updates run whether or not the operator is present, at negligible cost. The Sonnet coaching agent runs only when the operator requests a draft, until the autonomy ladder opens (§2.4).
 
 Debounced near-real-time processing **replaces the hourly batch**. This keeps the "handle message bursts as one unit" benefit while eliminating up-to-59-minute latency. The 2–3 minute pause also reads as natural human pacing.
 
@@ -115,8 +116,8 @@ Debounced near-real-time processing **replaces the hourly batch**. This keeps th
 
 | Agent | Model | Role |
 |---|---|---|
-| **Router** | Haiku (forced tool-call) | First touch on every batch. Intent classification. |
-| **GM Classifier** | Haiku (forced tool-call) | Preserved from prototype, including reasoning-memory few-shot overrides. Skipped when the day is already Compliant. |
+| **Router** | Haiku (forced tool-call) | Response shaping only: `primary_intent` + `needs_response` per batch. Never a compliance input (D23). |
+| **GM Classifier** | Haiku (forced tool-call) | Sole authority on the compliance question (D23). Preserved from prototype, including reasoning-memory few-shot overrides. Runs on every batch, in parallel with the router, until the day is Compliant — the D9 short-circuit is its only gate. |
 | **Primary Coaching Agent** | Sonnet (tool-calling loop) | Owns the coaching persona. Composes all client-facing drafts. Invoked on operator draft-trigger at autonomy Level 0; automatically at higher levels (§2.4). |
 
 Narrative maintenance and client/agent assessment are **not** runtime agents — they are design-plane workflows (§2.9).
@@ -179,13 +180,13 @@ Core entities (schemas in Phase 2): `clients` (incl. lifecycle status, timezone,
 - `prompts/` — runtime agent system prompts, coaching persona, few-shot calibration, classifier reasoning-memory. Lives in the **product repo**.
 - Client narratives — one file per client, in a **separate local data directory with its own private git history**. Narratives are personal data about real people and must never ride along in a repo that could be pushed anywhere.
 
-All SQLite access goes through a **repository layer**; a future move to hosted Postgres is a repository swap, not a rewrite. Migration from the prototype's JSON is a one-time per-client import script, enabling gradual cutover (old and new systems coexist during transition).
+All SQLite access goes through a **repository layer**; a future move to hosted Postgres is a repository swap, not a rewrite. **The system starts fresh (D22):** no data is migrated from the prototype's JSON files; the prototype is retired and clients onboard anew through the verification flow.
 
 ### 2.7 Admin UI (Runtime Plane)
 
 The operator's daily cockpit, designed around a **multi-client queue workflow** (work a queue, not tabs). Division of labor: **daily triage happens in the UI; deep work happens in the design plane (§2.9).**
 
-- **Triage-first home:** one cross-client list of items needing the operator — awaiting-response items (labeled with router intent, with a draft trigger), pending draft approvals, pending-review classifications, narrative staleness nudges, new unverified contacts.
+- **Triage-first home:** one cross-client list of items needing the operator — awaiting-response items (labeled with primary_intent, with a draft trigger), pending draft approvals, pending-review classifications, narrative staleness nudges, new unverified contacts.
 - **Client detail view:** conversation history, compliance calendar, narrative (read view + **quick manual edits** — typo fixes, one-line additions; substantive narrative work belongs in the design plane), per-client audit log, narrative staleness indicator.
 - **Client administration:** verify/block new contacts; compliance corrections (fix streaks, resolve pending reviews) via audited repository operations; per-client **reset** (wipe history/compliance, keep registration) and **delete** (remove entirely) — confirmation-gated, executed as a single repository transaction, recorded in the audit log.
 - **Tech:** small Vite + React SPA served by the same core process, replacing the 1200-line HTML string template. Polling initially; SSE only if needed.
@@ -262,7 +263,7 @@ The design plane is inherently local (it's the operator at their machine) and do
 3. **Runtime agents propose; the operator disposes** — no runtime agent can send a message without passing the approval pipeline (until the autonomy ladder is deliberately opened), and none can write the narrative or their own prompts. Knowledge changes happen only where the operator is present: the design plane or admin UI quick edits.
 4. **Modularity via module boundaries** — single process, single DB; coaching domains plug in as new subagents + tool sets + prompt files + schema tables, not new services.
 5. **Observable by default** — every LLM call, tool invocation, and state change is logged (SQLite audit log for the runtime plane, git history for the design plane) and visible in the admin UI.
-6. **Iterate safely** — gradual per-client migration from the prototype; old and new systems can coexist.
+6. **Iterate safely** — the redesign starts fresh (D22): the prototype is retired rather than migrated. Within the new system, changes ship incrementally, with rollback via git-versioned knowledge files and DB snapshots.
 
 ---
 
@@ -291,12 +292,14 @@ The design plane is inherently local (it's the operator at their machine) and do
 | D19 | Draft granularity & freshness | One draft per burst; one active draft per client; send-time freshness check blocks stale sends. Auto-regeneration deferred to autonomy Level 1 | Operator decision (2026-07-07, revised same day with D21); a reply can never predate the client's last message; stale drafts retained as audit/calibration signal |
 | D20 | Backward time handling | Reconciliation is forward-only (warn + no-op on backward time); dev clock rewind via DB snapshot/restore | Operator decision (2026-07-07); no production scenario moves time backward; reverse state-machine logic would double complexity for a test-only case |
 | D21 | Drafting trigger | Non-GM drafting starts at autonomy Level 0 (operator-triggered); automatic pipeline is Haiku-only; confidence gate generalized to a 3-level autonomy ladder per response type | Operator decision (2026-07-07); in full-manual mode an eager Sonnet draft is spent before knowing it's wanted; ladder makes auto-draft/auto-send config flips, not new code |
+| D22 | Prototype data | **Fresh start** — no migration from the prototype's JSON; prototype retired; clients onboard anew via the verification flow | Operator decision (2026-07-07, Phase 2); supersedes the gradual-migration posture originally stated in §2.6 and principle 6 |
+| D23 | GM detection authority | GM classifier runs on every batch until the day is Compliant; router carries no GM-detection output and is never a compliance input; the two calls run in parallel | Operator decision (2026-07-07, Phase 2); "does this contain a GM?" *is* the classification question — a router pre-gate would duplicate the judgment with a less-calibrated prompt and risk false Misses, the most trust-destroying error. Classifier errors resolve to Pending Review (hold, never reset) — conservative in the direction the domain logic already chose |
 
 ---
 
 ## 7. Explicitly Deferred
 
-- **Phase 2:** full data schemas, storage abstraction details, JSON migration plan, conversation-history-as-context strategy, narrative document structure (file format + `narrative_meta` bookkeeping).
+- **Phase 2:** full data schemas, storage abstraction details, conversation-history-as-context strategy, narrative document structure (file format + `narrative_meta` bookkeeping), fresh-start bootstrap.
 - **Phase 3:** runtime agent prompts, tool schemas, routing logic detail, autonomy-ladder policy design (per-type levels, confidence thresholds); design-plane workflow specs (narrative update, assessment, prompt tuning) as project skills/commands, including the meta-agent's read-access tooling to SQLite.
 - **Phase 4:** build order, interfaces, testing strategy, migration/cutover sequencing; design-plane logistics if the runtime moves off the local machine.
 - **Future domains** (nutrition, training, metrics, onboarding): architecture accommodates them as pluggable modules; none are designed yet ("lean data, extend later").
