@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "ulid": "^3.0.2"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
