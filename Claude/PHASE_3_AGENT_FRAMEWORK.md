@@ -1,6 +1,6 @@
 # Phase 3 — Agent Framework Specification
 
-**Status:** Presented for operator sign-off
+**Status:** ✅ APPROVED by operator — 2026-07-07
 **Date:** 2026-07-07
 **Depends on:** `PHASE_1_ARCHITECTURE.md` (D1–D23), `PHASE_2_DATA_MODEL.md` (P2-1–P2-8) — both approved
 **Scope:** Runtime agent prompts and tool schemas, routing logic, response taxonomy, autonomy-ladder policy, miss handling, triage item model, and design-plane workflow specs. Build order and testing are Phase 4.
