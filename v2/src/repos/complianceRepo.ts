@@ -13,6 +13,7 @@ export interface ComplianceRepo {
   getDay(clientId: string, date: string): ComplianceDay | undefined;
   listDays(clientId: string, fromDate: string, toDate: string): ComplianceDay[];
   currentStreak(clientId: string): number;
+  streakBefore(clientId: string, date: string): number;
   upsertDay(day: ComplianceDay): void;
   setFollowupState(clientId: string, date: string, state: FollowupState): void;
   listFollowupsPending(): ComplianceDay[];
@@ -46,6 +47,19 @@ export function createComplianceRepo(db: Db, clock: Clock, audit: AuditRepo): Co
            ORDER BY date DESC LIMIT 1`
         )
         .get(clientId) as { s: number } | undefined;
+      return r?.s ?? 0;
+    },
+
+    // Streak as of just before `date`, skipping NULL (held) days — the input
+    // to "compliant day = streak-before + 1".
+    streakBefore(clientId, date) {
+      const r = db
+        .prepare(
+          `SELECT streak_after AS s FROM compliance_days
+           WHERE client_id = ? AND date < ? AND streak_after IS NOT NULL
+           ORDER BY date DESC LIMIT 1`
+        )
+        .get(clientId, date) as { s: number } | undefined;
       return r?.s ?? 0;
     },
 
