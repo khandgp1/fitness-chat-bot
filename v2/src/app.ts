@@ -18,7 +18,9 @@ import { loadConfig, type Config } from './config/config.js';
 import { openDb, type Db } from './db/connection.js';
 import { runMigrations } from './db/migrate.js';
 import { createComplianceEngine, type ComplianceEngine } from './domain/compliance.js';
+import type { Server } from 'node:http';
 import { createContextBuilder } from './pipeline/context.js';
+import { createServer } from './server/server.js';
 import { createDebouncer, type Debouncer } from './pipeline/debounce.js';
 import { createIngestor, type Ingestor } from './pipeline/ingest.js';
 import { createProcessor, type Processor } from './pipeline/process.js';
@@ -55,6 +57,7 @@ export interface App {
   deps: AppDeps;
   start(): Promise<void>;
   stop(): Promise<void>;
+  apiPort(): number | undefined;
 }
 
 /**
@@ -152,8 +155,13 @@ export function buildApp(
   });
 
   let tick: NodeJS.Timeout | undefined;
+  let httpServer: Server | undefined;
 
   return {
+    apiPort() {
+      const addr = httpServer?.address();
+      return typeof addr === 'object' && addr !== null ? addr.port : undefined;
+    },
     deps: { cfg, db, clock, audit, clients, messages, compliance, drafts, narratives, engine, debouncer, ingestor, adapter, prompts, processor, draftService },
 
     async start() {
@@ -177,6 +185,11 @@ export function buildApp(
       // (the grace period keeps this from racing fresh onBatchClosed work).
       await processor.retryPending();
 
+      // Admin server (Stage 6): refuses to start without ADMIN_TOKEN (D5).
+      const server = createServer(this.deps);
+      httpServer = await server.listen(cfg.port);
+      console.log(`[admin] serving on http://localhost:${this.apiPort()}`);
+
       tick = setInterval(() => {
         try {
           engine.reconcileAll();
@@ -193,6 +206,10 @@ export function buildApp(
       if (tick !== undefined) clearInterval(tick);
       debouncer.stop();
       await adapter.stop();
+      if (httpServer !== undefined) {
+        await new Promise<void>((resolve) => httpServer!.close(() => resolve()));
+        httpServer = undefined;
+      }
       db.close();
     },
   };

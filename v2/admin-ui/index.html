@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coach Admin</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font: 14px/1.5 -apple-system, "Segoe UI", sans-serif; background: #14171c; color: #e6e9ee; }
+      button { background: #2b6cb0; color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+      button:hover { background: #3182ce; }
+      button.warn { background: #9b2c2c; }
+      button.ghost { background: #2d3440; }
+      button:disabled { opacity: 0.5; cursor: wait; }
+      input, textarea, select { background: #1d222b; color: #e6e9ee; border: 1px solid #2d3440; border-radius: 6px; padding: 8px; font: inherit; width: 100%; }
+      textarea { min-height: 70px; }
+      nav { display: flex; gap: 8px; padding: 12px 20px; background: #1a1e26; border-bottom: 1px solid #2d3440; align-items: center; }
+      nav .brand { font-weight: 700; margin-right: 12px; }
+      nav button.active { background: #3182ce; }
+      main { max-width: 900px; margin: 0 auto; padding: 20px; }
+      .card { background: #1a1e26; border: 1px solid #2d3440; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+      .card h4 { margin: 0 0 4px; }
+      .muted { color: #9aa3b0; font-size: 13px; }
+      .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+      .tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #2d3440; text-transform: uppercase; letter-spacing: 0.5px; }
+      .tag.awaiting_response { background: #744210; } .tag.pending_draft { background: #22543d; }
+      .tag.miss_followup { background: #742a2a; } .tag.pending_review { background: #44337a; }
+      .tag.narrative_staleness { background: #234e52; } .tag.unverified { background: #3c366b; }
+      table { width: 100%; border-collapse: collapse; }
+      td, th { padding: 8px; border-bottom: 1px solid #2d3440; text-align: left; }
+      tr.click { cursor: pointer; } tr.click:hover { background: #1d222b; }
+      .cal { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; }
+      .cal div { aspect-ratio: 1; border-radius: 4px; background: #2d3440; cursor: pointer; font-size: 9px; display: flex; align-items: flex-end; justify-content: center; color: #9aa3b0; }
+      .cal .compliant { background: #276749; } .cal .miss { background: #9b2c2c; }
+      .cal .pending_review { background: #6b46c1; }
+      .msg { padding: 6px 10px; border-radius: 8px; margin: 4px 0; max-width: 75%; white-space: pre-wrap; }
+      .msg.inbound { background: #2d3440; } .msg.outbound { background: #2b6cb0; margin-left: auto; }
+      h2 { margin: 18px 0 10px; } h3 { margin: 16px 0 8px; }
+      .login { max-width: 320px; margin: 15vh auto; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

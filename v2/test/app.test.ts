@@ -17,6 +17,8 @@ beforeEach(() => {
     DB_PATH: join(dir, 'app.sqlite'),
     NARRATIVES_DIR: join(dir, 'narratives'),
     DEBOUNCE_MINUTES: '1',
+    ADMIN_TOKEN: 'test-token',
+    PORT: '0',
   });
   app = buildApp({ cfg, adapter });
 });
@@ -53,6 +55,8 @@ describe('composition root', () => {
       DB_PATH: join(dir, 'app.sqlite'),
       NARRATIVES_DIR: join(dir, 'narratives'),
       DEBOUNCE_MINUTES: '0', // window elapsed: everything open is overdue
+      ADMIN_TOKEN: 'test-token',
+      PORT: '0',
     });
     app = buildApp({ cfg: cfg2, adapter: adapter2 });
     await app.start();
