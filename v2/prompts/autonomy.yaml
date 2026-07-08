@@ -1,0 +1,9 @@
+# Autonomy ladder (Phase 3 §4, D21). Levels: 0 = operator-triggered draft,
+# 1 = auto-draft, 2 = auto-send above confidence threshold.
+# Edited only in the design plane, one type at a time, evidence in hand.
+# Unknown response types fail closed to level 0.
+autonomy:
+  gm_ack:                  { level: 0, auto_send_min_confidence: null }
+  status_ack:              { level: 0, auto_send_min_confidence: null }
+  coaching_answer:         { level: 0, auto_send_min_confidence: null }
+  accountability_followup: { level: 0, auto_send_min_confidence: null }

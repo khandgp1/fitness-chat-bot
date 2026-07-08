@@ -29,6 +29,8 @@ export interface MessageRepo {
   dismissBatch(batchId: string): void;
   getBatch(batchId: string): Batch | undefined;
   listBatches(clientId: string, status?: BatchStatus): Batch[];
+  listByBatch(batchId: string): Message[]; // oldest-first
+  listStalePendingBatches(cutoff: string): Batch[]; // pending, active clients, created before cutoff
 }
 
 export function createMessageRepo(db: Db, clock: Clock, audit: AuditRepo): MessageRepo {
@@ -164,6 +166,27 @@ export function createMessageRepo(db: Db, clock: Clock, audit: AuditRepo): Messa
               .prepare('SELECT * FROM batches WHERE client_id = ? AND status = ? ORDER BY id DESC')
               .all(clientId, status)
       ) as Array<Record<string, unknown>>;
+      return rows.map(mapBatch);
+    },
+
+    listByBatch(batchId) {
+      const rows = db
+        .prepare('SELECT * FROM messages WHERE batch_id = ? ORDER BY id')
+        .all(batchId) as Array<Record<string, unknown>>;
+      return rows.map(mapMessage);
+    },
+
+    // Retry surface for the processor: pending batches (active clients only —
+    // blocked/unverified clients' leftovers are ignored) past the grace cutoff.
+    listStalePendingBatches(cutoff) {
+      const rows = db
+        .prepare(
+          `SELECT b.* FROM batches b
+           JOIN clients c ON c.id = b.client_id
+           WHERE b.status = 'pending' AND c.status = 'active' AND b.created_at < ?
+           ORDER BY b.id`
+        )
+        .all(cutoff) as Array<Record<string, unknown>>;
       return rows.map(mapBatch);
     },
   };

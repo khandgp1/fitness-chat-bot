@@ -3,6 +3,13 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ChannelAdapter } from './adapters/types.js';
 import { createTelegramAdapter } from './adapters/telegram.js';
+import { createGmClassifier } from './agents/gmClassifier.js';
+import {
+  createAnthropicLlmClient,
+  createUnconfiguredLlmClient,
+  type LlmClient,
+} from './agents/llmClient.js';
+import { createRouter } from './agents/router.js';
 import { createClock, type Clock } from './clock/clock.js';
 import { loadConfig, type Config } from './config/config.js';
 import { openDb, type Db } from './db/connection.js';
@@ -10,6 +17,8 @@ import { runMigrations } from './db/migrate.js';
 import { createComplianceEngine, type ComplianceEngine } from './domain/compliance.js';
 import { createDebouncer, type Debouncer } from './pipeline/debounce.js';
 import { createIngestor, type Ingestor } from './pipeline/ingest.js';
+import { createProcessor, type Processor } from './pipeline/process.js';
+import { createPromptStore, type PromptStore } from './repos/promptStore.js';
 import { createAuditRepo, type AuditRepo } from './repos/auditRepo.js';
 import { createClientRepo, type ClientRepo } from './repos/clientRepo.js';
 import { createComplianceRepo, type ComplianceRepo } from './repos/complianceRepo.js';
@@ -33,6 +42,8 @@ export interface AppDeps {
   debouncer: Debouncer;
   ingestor: Ingestor;
   adapter: ChannelAdapter;
+  prompts: PromptStore;
+  processor: Processor;
 }
 
 export interface App {
@@ -45,7 +56,9 @@ export interface App {
  * Composition root. Boot sequence (Stage 3 spec): config → DB → migrate →
  * reconcileAll → sweep → adapter → periodic tick.
  */
-export function buildApp(opts: { cfg?: Config; adapter?: ChannelAdapter; clock?: Clock } = {}): App {
+export function buildApp(
+  opts: { cfg?: Config; adapter?: ChannelAdapter; clock?: Clock; llm?: LlmClient } = {}
+): App {
   const cfg = opts.cfg ?? loadConfig();
 
   mkdirSync(dirname(cfg.dbPath), { recursive: true });
@@ -62,13 +75,35 @@ export function buildApp(opts: { cfg?: Config; adapter?: ChannelAdapter; clock?:
   const narratives = createNarrativeStore(db, clock, audit, { narrativesDir: cfg.narrativesDir });
   const engine = createComplianceEngine({ db, clock, clients, compliance, audit });
 
+  const prompts = createPromptStore({ promptsDir: cfg.promptsDir });
+  const llm =
+    opts.llm ??
+    (cfg.anthropicApiKey !== undefined
+      ? createAnthropicLlmClient({ apiKey: cfg.anthropicApiKey })
+      : createUnconfiguredLlmClient());
+  const router = createRouter({ llm, prompts, audit, model: cfg.routerModel });
+  const classifier = createGmClassifier({ llm, prompts, audit, model: cfg.classifierModel });
+  const processor = createProcessor({
+    clock,
+    clients,
+    messages,
+    compliance,
+    engine,
+    router,
+    classifier,
+    classifierModel: cfg.classifierModel,
+  });
+
   const debouncer = createDebouncer(
     { db, clock, messages },
     {
       debounceMs: cfg.debounceMinutes * 60 * 1000,
-      // Stage 4 replaces this with the classifier/router processor.
-      onBatchClosed: (batchId, clientId) =>
-        console.log(`[pipeline] batch ${batchId} pending for client ${clientId}`),
+      onBatchClosed: (batchId, clientId) => {
+        console.log(`[pipeline] batch ${batchId} pending for client ${clientId} — processing`);
+        void processor.processBatch(batchId).catch((err) => {
+          console.error(`[process] batch ${batchId} failed:`, err);
+        });
+      },
     }
   );
 
@@ -94,7 +129,7 @@ export function buildApp(opts: { cfg?: Config; adapter?: ChannelAdapter; clock?:
   let tick: NodeJS.Timeout | undefined;
 
   return {
-    deps: { cfg, db, clock, audit, clients, messages, compliance, drafts, narratives, engine, debouncer, ingestor, adapter },
+    deps: { cfg, db, clock, audit, clients, messages, compliance, drafts, narratives, engine, debouncer, ingestor, adapter, prompts, processor },
 
     async start() {
       const reconciled = engine.reconcileAll();
@@ -113,11 +148,16 @@ export function buildApp(opts: { cfg?: Config; adapter?: ChannelAdapter; clock?:
         }
       });
 
+      // Leftover pending batches from before a crash get processed on boot
+      // (the grace period keeps this from racing fresh onBatchClosed work).
+      await processor.retryPending();
+
       tick = setInterval(() => {
         try {
           engine.reconcileAll();
           debouncer.sweep();
           debouncer.rearm();
+          void processor.retryPending().catch((err) => console.error('[retry] failed:', err));
         } catch (err) {
           console.error('[tick] failed:', err);
         }

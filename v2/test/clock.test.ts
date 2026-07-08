@@ -40,6 +40,19 @@ describe('createClock', () => {
     expect(clock.now()).toBeInstanceOf(Date); // reading is always allowed
   });
 
+  it('a running clock notices sidecar changes from another process (live re-read)', async () => {
+    const file = join(dir, 'c.json');
+    const app = createClock({ devMode: true, offsetFile: file });
+    expect(app.offsetMs()).toBe(0);
+
+    // "another process" advances the clock (mtime must differ)
+    await new Promise((r) => setTimeout(r, 10));
+    const cli = createClock({ devMode: true, offsetFile: file });
+    cli.advance(DAY_MS);
+
+    expect(app.offsetMs()).toBe(DAY_MS); // no restart needed
+  });
+
   it('treats a corrupt sidecar file as offset 0', () => {
     const file = join(dir, 'c.json');
     const clock = createClock({ devMode: true, offsetFile: file });

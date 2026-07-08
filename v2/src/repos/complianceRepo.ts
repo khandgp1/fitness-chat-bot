@@ -1,8 +1,19 @@
 import type { Clock } from '../clock/clock.js';
 import type { Db } from '../db/connection.js';
 import type { AuditRepo } from './auditRepo.js';
+import { newId } from './ids.js';
 import { withTransaction } from './tx.js';
 import type { ComplianceDay, ComplianceStatus, FollowupState } from './types.js';
+
+export interface Classification {
+  id: string;
+  clientId: string;
+  batchId: string;
+  isValidGm?: boolean; // undefined = classification failed → pending_review
+  reasoning?: string;
+  model: string;
+  createdAt: string;
+}
 
 /**
  * SHELL (Stage 1): reads, the upsert primitive, and the streak derivation.
@@ -17,6 +28,14 @@ export interface ComplianceRepo {
   upsertDay(day: ComplianceDay): void;
   setFollowupState(clientId: string, date: string, state: FollowupState): void;
   listFollowupsPending(): ComplianceDay[];
+  recordClassification(input: {
+    clientId: string;
+    batchId: string;
+    isValidGm?: boolean;
+    reasoning?: string;
+    model: string;
+  }): void;
+  listClassifications(batchId: string): Classification[];
 }
 
 export function createComplianceRepo(db: Db, clock: Clock, audit: AuditRepo): ComplianceRepo {
@@ -105,6 +124,37 @@ export function createComplianceRepo(db: Db, clock: Clock, audit: AuditRepo): Co
         .prepare("SELECT * FROM compliance_days WHERE followup_state = 'pending' ORDER BY date")
         .all() as Array<Record<string, unknown>>;
       return rows.map(mapDay);
+    },
+
+    // Full classifier audit trail (Phase 2 §2.3). NULL is_valid_gm = failure.
+    recordClassification(input) {
+      db.prepare(
+        `INSERT INTO classifications (id, client_id, batch_id, is_valid_gm, reasoning, model, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        newId(),
+        input.clientId,
+        input.batchId,
+        input.isValidGm === undefined ? null : input.isValidGm ? 1 : 0,
+        input.reasoning ?? null,
+        input.model,
+        clock.now().toISOString()
+      );
+    },
+
+    listClassifications(batchId) {
+      const rows = db
+        .prepare('SELECT * FROM classifications WHERE batch_id = ? ORDER BY id')
+        .all(batchId) as Array<Record<string, unknown>>;
+      return rows.map((r) => ({
+        id: r.id as string,
+        clientId: r.client_id as string,
+        batchId: r.batch_id as string,
+        isValidGm: r.is_valid_gm === null ? undefined : (r.is_valid_gm as number) === 1,
+        reasoning: (r.reasoning as string | null) ?? undefined,
+        model: r.model as string,
+        createdAt: r.created_at as string,
+      }));
     },
   };
 }

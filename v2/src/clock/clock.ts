@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 /**
@@ -18,20 +18,41 @@ export const HOUR_MS = 60 * 60 * 1000;
 
 export function createClock(opts: { devMode: boolean; offsetFile: string }): Clock {
   let offset = readOffset(opts.offsetFile);
+  let seenMtimeMs = fileMtimeMs(opts.offsetFile);
 
+  // The clock CLI runs in a separate process; a running app must notice
+  // sidecar changes live (operator-found gap, Stage 4 Verify). mtime-checked
+  // re-read: one statSync per read — negligible at this scale. Prod
+  // (devMode=false) never re-reads; the offset there is always 0-at-boot.
+  const refresh = () => {
+    if (!opts.devMode) return;
+    const mtime = fileMtimeMs(opts.offsetFile);
+    if (mtime !== seenMtimeMs) {
+      seenMtimeMs = mtime;
+      offset = readOffset(opts.offsetFile);
+    }
+  };
   const persist = () => {
     mkdirSync(dirname(opts.offsetFile), { recursive: true });
     writeFileSync(opts.offsetFile, JSON.stringify({ offsetMs: offset }) + '\n');
+    seenMtimeMs = fileMtimeMs(opts.offsetFile);
   };
   const guard = (op: string) => {
     if (!opts.devMode) throw new Error(`Clock.${op} is not allowed outside dev mode`);
   };
 
   return {
-    now: () => new Date(Date.now() + offset),
-    offsetMs: () => offset,
+    now: () => {
+      refresh();
+      return new Date(Date.now() + offset);
+    },
+    offsetMs: () => {
+      refresh();
+      return offset;
+    },
     advance(ms: number) {
       guard('advance');
+      refresh();
       offset += ms;
       persist();
     },
@@ -41,6 +62,14 @@ export function createClock(opts: { devMode: boolean; offsetFile: string }): Clo
       persist();
     },
   };
+}
+
+function fileMtimeMs(file: string): number | undefined {
+  try {
+    return statSync(file).mtimeMs;
+  } catch {
+    return undefined;
+  }
 }
 
 function readOffset(file: string): number {
