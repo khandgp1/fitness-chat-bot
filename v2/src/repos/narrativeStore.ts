@@ -1,5 +1,4 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Clock } from '../clock/clock.js';
 import type { Db } from '../db/connection.js';
@@ -8,14 +7,18 @@ import { newId } from './ids.js';
 import type { NarrativeFlag } from './types.js';
 
 /**
- * Spans both media (D16): narrative content is a markdown file per client in
- * a private directory with its own git history; watermark and flags live in
- * SQLite. Stage 7 formalizes the directory's setup; this store makes writes
- * safe (and committed) regardless of order by initializing git on first write.
+ * Spans both media (D16 as revised 2026-07-08): narrative content is a
+ * markdown file per client under v2/data/narratives (gitignored client data,
+ * NO git history — narratives are derivative of the SQLite conversation
+ * history); watermark and flags live in SQLite. Versioning is a daily
+ * pre-image snapshot (Option A): the first write of a (dev-clock) day copies
+ * the previous content to history/<clientId>/<YYYY-MM-DD>.md; later writes
+ * that day skip. Audit events are the queryable change trail.
  */
 export interface NarrativeStore {
   read(clientId: string): { content: string | undefined; path: string };
   quickEdit(clientId: string, content: string, actor: 'operator'): void;
+  snapshotDaily(clientId: string): boolean; // pre-image guard for direct file edits; true if taken
   getWatermark(clientId: string): string | undefined;
   setWatermark(clientId: string, ts: string): void;
   addFlag(clientId: string, note: string, createdBy: 'agent' | 'operator'): void;
@@ -32,12 +35,17 @@ export function createNarrativeStore(
   const dir = opts.narrativesDir;
   const fileFor = (clientId: string) => join(dir, `${clientId}.md`);
 
-  const git = (...args: string[]): string =>
-    execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
-
-  const ensureRepo = (): void => {
-    mkdirSync(dir, { recursive: true });
-    if (!existsSync(join(dir, '.git'))) git('init', '--quiet');
+  // Option A: at most one pre-image per client per effective-clock day.
+  const snapshotDaily = (clientId: string): boolean => {
+    const path = fileFor(clientId);
+    if (!existsSync(path)) return false; // nothing to preserve
+    const date = clock.now().toISOString().slice(0, 10);
+    const histDir = join(dir, 'history', clientId);
+    const snapPath = join(histDir, `${date}.md`);
+    if (existsSync(snapPath)) return false; // today's pre-image already taken
+    mkdirSync(histDir, { recursive: true });
+    copyFileSync(path, snapPath);
+    return true;
   };
 
   return {
@@ -47,20 +55,13 @@ export function createNarrativeStore(
     },
 
     quickEdit(clientId, content, actor) {
-      ensureRepo();
-      const path = fileFor(clientId);
-      writeFileSync(path, content);
-      git('add', `${clientId}.md`);
-      const staged = git('diff', '--cached', '--name-only');
-      if (staged !== '') {
-        git(
-          '-c', 'user.name=Coaching Bot',
-          '-c', 'user.email=bot@localhost',
-          'commit', '--quiet', '-m', `narrative(${clientId}): quick edit by ${actor}`
-        );
-      }
+      mkdirSync(dir, { recursive: true });
+      snapshotDaily(clientId);
+      writeFileSync(fileFor(clientId), content);
       audit.event({ clientId, actor, action: 'narrative_quick_edit' });
     },
+
+    snapshotDaily,
 
     getWatermark(clientId) {
       const r = db

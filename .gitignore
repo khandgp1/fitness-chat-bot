@@ -4,3 +4,6 @@ dist/
 data/
 !data/reasoning_memory.json
 data/roster.json
+
+# Client narratives: private data, never committed to the main repo (D16 rev.)
+narratives/

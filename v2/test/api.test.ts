@@ -196,6 +196,12 @@ describe('static SPA', () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toContain('Coach Admin');
   });
+
+  it('SPA fallback serves index.html for unknown paths (regression: dot-segment repo path)', async () => {
+    const res = await fetch(`${base}/some/deep/link`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('Coach Admin');
+  });
 });
 
 describe('dev routes', () => {

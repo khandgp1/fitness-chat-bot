@@ -41,7 +41,7 @@ function boolVar(env: NodeJS.ProcessEnv, key: string, def: boolean): boolean {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     dbPath: env.DB_PATH ?? 'data/v2.sqlite',
-    narrativesDir: env.NARRATIVES_DIR ?? '../fitness-bot-narratives',
+    narrativesDir: env.NARRATIVES_DIR ?? 'data/narratives',
     promptsDir: env.PROMPTS_DIR ?? 'prompts',
     debounceMinutes: intVar(env, 'DEBOUNCE_MINUTES', 3),
     contextMaxMessages: intVar(env, 'CONTEXT_MAX_MESSAGES', 30),

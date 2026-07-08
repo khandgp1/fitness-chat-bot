@@ -14,6 +14,7 @@
     "clock": "tsx src/cli/clock.ts",
     "clients": "tsx src/cli/clients.ts",
     "drafts": "tsx src/cli/drafts.ts",
+    "studio": "tsx src/cli/studio.ts",
     "ui:dev": "vite",
     "ui:build": "vite build",
     "migrate": "tsx src/cli/migrate.ts"

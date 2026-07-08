@@ -71,7 +71,9 @@ v2/test/api.test.ts
 - [x] **5. Clients + ClientDetail views** — roster with confirm-gated reset/delete; detail: 28-day click-to-correct calendar, draft panel, narrative quick-edit, conversation, audit tail, staleness badge. ✅ (manual at Verify)
 - [x] **6. Dev panel** — clock (advance auto-snapshots via D20; full rewind deliberately CLI-only — restoring the DB file under an open connection is unsafe), simulate-inbound through the real ingest path (existing client via dev identity, or a fresh stranger). ✅ (manual at Verify)
 
-**Stage complete:** 120 tests green (12 new), typecheck clean (UI included), SPA built. Awaiting operator Verify checkpoint (needs `ADMIN_TOKEN` added to `.env`).
+**Stage complete:** 120 tests green (12 new), typecheck clean (UI included), SPA built. Closed conditionally 2026-07-08 (operator defers deeper UI testing to Stage 7 Verify).
+
+**Operator-found gap (2026-07-08, during Stage 7 verify):** console `NotFoundError` from the SPA fallback — Express `sendFile` rejects absolute paths containing dot-segments (this repo lives under `.AntiGrav/`), so any URL missed by the static handler 404'd. Fix: `sendFile('index.html', { root: distDir })` so the dotfile check sees only the relative part. +1 regression test (fallback on deep links).
 
 ## Verify (operator checkpoint)
 

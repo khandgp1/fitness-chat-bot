@@ -53,7 +53,10 @@ export function createServer(deps: AppDeps): { listen(port: number): Promise<Ser
     app.use(express.static(distDir));
     app.use((req: Request, res: Response, next: NextFunction) => {
       if (req.method === 'GET' && !req.path.startsWith('/api')) {
-        res.sendFile(join(distDir, 'index.html'));
+        // root + relative path: sendFile's dotfile check must only see
+        // 'index.html' — an absolute path through a hidden directory
+        // (e.g. this repo's parent, .AntiGrav) 404s otherwise.
+        res.sendFile('index.html', { root: distDir }, (err) => err && next(err));
         return;
       }
       next();

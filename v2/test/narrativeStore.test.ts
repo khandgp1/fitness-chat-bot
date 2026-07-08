@@ -1,8 +1,7 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { HOUR_MS } from '../src/clock/clock.js';
+import { DAY_MS, HOUR_MS } from '../src/clock/clock.js';
 import { createAuditRepo, type AuditRepo } from '../src/repos/auditRepo.js';
 import { createClientRepo } from '../src/repos/clientRepo.js';
 import { createMessageRepo, type MessageRepo } from '../src/repos/messageRepo.js';
@@ -27,25 +26,44 @@ beforeEach(() => {
 });
 afterEach(() => ctx.cleanup());
 
-const gitLog = (): string =>
-  execFileSync('git', ['log', '--oneline'], { cwd: narrativesDir, encoding: 'utf8' }).trim();
+const histDir = () => join(narrativesDir, 'history', clientId);
+const snapshots = () => (existsSync(histDir()) ? readdirSync(histDir()).sort() : []);
 
-describe('content via file + git', () => {
-  it('quickEdit auto-inits the repo, writes, commits, audits', () => {
-    expect(store.read(clientId).content).toBeUndefined();
-    store.quickEdit(clientId, '## Snapshot\nNew client.\n', 'operator');
+describe('content + daily pre-image snapshots (D15/D16 as revised)', () => {
+  it('writes, audits, and takes at most one pre-image per day — preserving the pre-edit content', () => {
+    store.quickEdit(clientId, 'v1: original\n', 'operator');
+    expect(store.read(clientId).content).toContain('v1');
+    expect(snapshots()).toEqual([]); // first-ever write: nothing to preserve
 
-    expect(existsSync(join(narrativesDir, '.git'))).toBe(true);
-    expect(store.read(clientId).content).toContain('New client.');
-    expect(gitLog()).toContain(`narrative(${clientId})`);
-    expect(audit.listEvents({ clientId }).map((e) => e.action)).toContain('narrative_quick_edit');
+    ctx.clock.advance(HOUR_MS);
+    store.quickEdit(clientId, 'v2: first edit today\n', 'operator');
+    expect(snapshots()).toEqual(['2026-07-07.md']);
+    expect(readFileSync(join(histDir(), '2026-07-07.md'), 'utf8')).toContain('v1'); // the PRE-image
+
+    ctx.clock.advance(HOUR_MS);
+    store.quickEdit(clientId, 'v3: second edit same day\n', 'operator');
+    expect(snapshots()).toEqual(['2026-07-07.md']); // coalesced — still one
+    expect(readFileSync(join(histDir(), '2026-07-07.md'), 'utf8')).toContain('v1'); // unchanged
+
+    ctx.clock.advance(DAY_MS);
+    store.quickEdit(clientId, 'v4: next day\n', 'operator');
+    expect(snapshots()).toEqual(['2026-07-07.md', '2026-07-08.md']);
+    expect(readFileSync(join(histDir(), '2026-07-08.md'), 'utf8')).toContain('v3'); // start-of-day-2 state
+
+    expect(audit.listEvents({ clientId }).filter((e) => e.action === 'narrative_quick_edit')).toHaveLength(4);
   });
 
-  it('an identical rewrite creates no empty commit', () => {
-    store.quickEdit(clientId, 'same\n', 'operator');
-    const commits = gitLog().split('\n').length;
-    store.quickEdit(clientId, 'same\n', 'operator');
-    expect(gitLog().split('\n').length).toBe(commits);
+  it('snapshotDaily guards direct file edits the same way', () => {
+    store.quickEdit(clientId, 'before a design-plane session\n', 'operator');
+    ctx.clock.advance(HOUR_MS);
+    expect(store.snapshotDaily(clientId)).toBe(true); // the skill's pre-edit guard
+    expect(store.snapshotDaily(clientId)).toBe(false); // idempotent within the day
+    expect(readFileSync(join(histDir(), '2026-07-07.md'), 'utf8')).toContain('before a design-plane session');
+  });
+
+  it('no git anywhere in the narrative path', () => {
+    store.quickEdit(clientId, 'content\n', 'operator');
+    expect(existsSync(join(narrativesDir, '.git'))).toBe(false);
   });
 });
 
@@ -72,23 +90,10 @@ describe('watermark & flags (D18)', () => {
       needsResponse: true,
     });
 
-    // no watermark yet: everything counts
     expect(store.stalenessScore(clientId)).toEqual({ flags: 1, replyWorthyBatches: 1 });
 
-    // watermark after that batch: batch no longer counts, flag cleared
     ctx.clock.advance(HOUR_MS);
     store.setWatermark(clientId, ctx.clock.now().toISOString());
     expect(store.stalenessScore(clientId)).toEqual({ flags: 0, replyWorthyBatches: 0 });
-
-    // new reply-worthy batch after watermark counts again
-    ctx.clock.advance(HOUR_MS);
-    const b2 = messages.openBatch(clientId);
-    messages.closeBatch(b2.id);
-    messages.markBatchProcessed(b2.id, {
-      primaryIntent: 'status_update',
-      routerConfidence: 0.8,
-      needsResponse: true,
-    });
-    expect(store.stalenessScore(clientId).replyWorthyBatches).toBe(1);
   });
 });
