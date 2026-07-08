@@ -11,6 +11,7 @@ export interface ClientRepo {
   listByStatus(status?: ClientStatus): Client[];
   registerIdentity(clientId: string, channel: string, externalId: string, handle?: string): void;
   findByIdentity(channel: string, externalId: string): Client | undefined;
+  getIdentity(clientId: string, channel: string): { externalId: string; handle?: string } | undefined;
   verify(id: string): void;
   block(id: string): void;
   update(id: string, patch: { displayName?: string; timezone?: string }): void;
@@ -71,6 +72,17 @@ export function createClientRepo(db: Db, clock: Clock, audit: AuditRepo): Client
         )
         .get(channel, externalId) as Record<string, unknown> | undefined;
       return r === undefined ? undefined : mapClient(r);
+    },
+
+    getIdentity(clientId, channel) {
+      const r = db
+        .prepare(
+          'SELECT external_id, handle FROM channel_identities WHERE client_id = ? AND channel = ?'
+        )
+        .get(clientId, channel) as { external_id: string; handle: string | null } | undefined;
+      return r === undefined
+        ? undefined
+        : { externalId: r.external_id, handle: r.handle ?? undefined };
     },
 
     verify(id) {

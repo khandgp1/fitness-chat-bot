@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ChannelAdapter } from './adapters/types.js';
 import { createTelegramAdapter } from './adapters/telegram.js';
+import { createCoach } from './agents/coach.js';
 import { createGmClassifier } from './agents/gmClassifier.js';
 import {
   createAnthropicLlmClient,
@@ -10,11 +11,14 @@ import {
   type LlmClient,
 } from './agents/llmClient.js';
 import { createRouter } from './agents/router.js';
+import { createAutonomyPolicy } from './approval/autonomy.js';
+import { createDraftService, type DraftService } from './approval/drafts.js';
 import { createClock, type Clock } from './clock/clock.js';
 import { loadConfig, type Config } from './config/config.js';
 import { openDb, type Db } from './db/connection.js';
 import { runMigrations } from './db/migrate.js';
 import { createComplianceEngine, type ComplianceEngine } from './domain/compliance.js';
+import { createContextBuilder } from './pipeline/context.js';
 import { createDebouncer, type Debouncer } from './pipeline/debounce.js';
 import { createIngestor, type Ingestor } from './pipeline/ingest.js';
 import { createProcessor, type Processor } from './pipeline/process.js';
@@ -44,6 +48,7 @@ export interface AppDeps {
   adapter: ChannelAdapter;
   prompts: PromptStore;
   processor: Processor;
+  draftService: DraftService;
 }
 
 export interface App {
@@ -94,6 +99,36 @@ export function buildApp(
     classifierModel: cfg.classifierModel,
   });
 
+  const adapter =
+    opts.adapter ??
+    createTelegramAdapter({
+      token:
+        cfg.telegramToken ??
+        (() => {
+          throw new Error('TELEGRAM_TOKEN is required to start the telegram adapter');
+        })(),
+    });
+
+  const contextBuilder = createContextBuilder(
+    { clock, clients, messages, compliance, narratives },
+    { maxMessages: cfg.contextMaxMessages, maxDays: cfg.contextMaxDays }
+  );
+  const autonomy = createAutonomyPolicy({ prompts });
+  const coach = createCoach({
+    llm,
+    prompts,
+    audit,
+    messages,
+    compliance,
+    narratives,
+    drafts,
+    context: contextBuilder,
+    autonomy,
+    model: cfg.coachModel,
+    maxTurns: cfg.maxCoachTurns,
+  });
+  const draftService = createDraftService({ db, clients, messages, drafts, coach, adapter });
+
   const debouncer = createDebouncer(
     { db, clock, messages },
     {
@@ -116,20 +151,10 @@ export function buildApp(
     defaultTimezone: cfg.defaultTimezone,
   });
 
-  const adapter =
-    opts.adapter ??
-    createTelegramAdapter({
-      token:
-        cfg.telegramToken ??
-        (() => {
-          throw new Error('TELEGRAM_TOKEN is required to start the telegram adapter');
-        })(),
-    });
-
   let tick: NodeJS.Timeout | undefined;
 
   return {
-    deps: { cfg, db, clock, audit, clients, messages, compliance, drafts, narratives, engine, debouncer, ingestor, adapter, prompts, processor },
+    deps: { cfg, db, clock, audit, clients, messages, compliance, drafts, narratives, engine, debouncer, ingestor, adapter, prompts, processor, draftService },
 
     async start() {
       const reconciled = engine.reconcileAll();

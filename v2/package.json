@@ -13,6 +13,7 @@
     "start": "tsx src/index.ts",
     "clock": "tsx src/cli/clock.ts",
     "clients": "tsx src/cli/clients.ts",
+    "drafts": "tsx src/cli/drafts.ts",
     "migrate": "tsx src/cli/migrate.ts"
   },
   "dependencies": {
@@ -20,7 +21,8 @@
     "better-sqlite3": "^11.10.0",
     "dotenv": "^16.4.5",
     "grammy": "^1.44.0",
-    "ulid": "^3.0.2"
+    "ulid": "^3.0.2",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

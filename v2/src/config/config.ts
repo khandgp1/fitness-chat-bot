@@ -11,6 +11,7 @@ export interface Config {
   defaultTimezone: string;
   routerModel: string;
   classifierModel: string;
+  coachModel: string;
   port: number;
   devMode: boolean;
   // Secrets: declared here, validated by the module that needs them at its startup.
@@ -51,6 +52,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     defaultTimezone: env.DEFAULT_TIMEZONE ?? 'America/New_York',
     routerModel: env.ROUTER_MODEL ?? 'claude-haiku-4-5',
     classifierModel: env.CLASSIFIER_MODEL ?? 'claude-haiku-4-5',
+    coachModel: env.COACH_MODEL ?? 'claude-sonnet-5',
     port: intVar(env, 'PORT', 3000),
     devMode: boolVar(env, 'DEV_MODE', true),
     anthropicApiKey: env.ANTHROPIC_API_KEY || undefined,
