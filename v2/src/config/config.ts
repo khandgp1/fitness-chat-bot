@@ -8,6 +8,7 @@ export interface Config {
   stalenessThresholdExchanges: number;
   stalenessThresholdDays: number;
   maxCoachTurns: number;
+  defaultTimezone: string;
   port: number;
   devMode: boolean;
   // Secrets: declared here, validated by the module that needs them at its startup.
@@ -45,6 +46,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     stalenessThresholdExchanges: intVar(env, 'STALENESS_THRESHOLD_EXCHANGES', 5),
     stalenessThresholdDays: intVar(env, 'STALENESS_THRESHOLD_DAYS', 14),
     maxCoachTurns: intVar(env, 'MAX_COACH_TURNS', 6),
+    defaultTimezone: env.DEFAULT_TIMEZONE ?? 'America/New_York',
     port: intVar(env, 'PORT', 3000),
     devMode: boolVar(env, 'DEV_MODE', true),
     anthropicApiKey: env.ANTHROPIC_API_KEY || undefined,
