@@ -17,7 +17,8 @@
     "studio": "tsx src/cli/studio.ts",
     "ui:dev": "vite",
     "ui:build": "vite build",
-    "migrate": "tsx src/cli/migrate.ts"
+    "migrate": "tsx src/cli/migrate.ts",
+    "reset-all": "tsx src/cli/reset-all.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
