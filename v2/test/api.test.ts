@@ -190,6 +190,39 @@ describe('admin actions', () => {
   });
 });
 
+describe('health', () => {
+  it('healthy baseline → no warnings; degraded states surface', async () => {
+    const baseline = (await (await api('/api/health')).json()) as { warnings: string[] };
+    expect(baseline.warnings).toEqual([]);
+
+    // stale pending batch (created 40 min ago) + an LLM error
+    const old = new Date(Date.now() - 40 * 60000).toISOString();
+    app.deps.db
+      .prepare("INSERT INTO batches (id, client_id, status, created_at) VALUES ('b-old', ?, 'pending', ?)")
+      .run(clientId, old);
+    app.deps.audit.llmCall({ clientId, agent: 'router', model: 'm', error: 'boom' });
+
+    const degraded = (await (await api('/api/health')).json()) as {
+      warnings: string[];
+      pendingBatches: number;
+      llmErrors24h: number;
+    };
+    expect(degraded.pendingBatches).toBe(1);
+    expect(degraded.llmErrors24h).toBe(1);
+    expect(degraded.warnings.join(' ')).toMatch(/stuck pending/);
+    expect(degraded.warnings.join(' ')).toMatch(/LLM error/);
+  });
+
+  it('unblock round-trips over HTTP', async () => {
+    await post(`/api/clients/${clientId}/block`);
+    await post(`/api/clients/${clientId}/unblock`);
+    const detail = (await (await api(`/api/clients/${clientId}`)).json()) as {
+      client: { status: string };
+    };
+    expect(detail.client.status).toBe('active');
+  });
+});
+
 describe('static SPA', () => {
   it('serves the built UI unauthenticated (data stays behind the API)', async () => {
     const res = await fetch(`${base}/`);

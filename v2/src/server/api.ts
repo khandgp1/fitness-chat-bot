@@ -4,6 +4,7 @@ import { StaleDraftError } from '../approval/drafts.js';
 import { clientDate, HOUR_MS } from '../clock/clock.js';
 import { dateAdd } from '../domain/compliance.js';
 import { snapshotExists, takeSnapshot } from '../dev/snapshot.js';
+import { backupsDirFor, latestBackupDate } from '../ops/backup.js';
 import { ActiveDraftExistsError } from '../repos/draftRepo.js';
 import { assembleTriage } from './triage.js';
 
@@ -34,6 +35,50 @@ export function registerApiRoutes(app: Express, deps: AppDeps): void {
 
   app.get('/api/triage', h((_req, res) => {
     res.json(assembleTriage(deps));
+  }));
+
+  // Health: aggregate the symptoms of failures that already land durably
+  // elsewhere (llm_calls.error, stuck pending batches, missing backups).
+  app.get('/api/health', h((_req, res) => {
+    const now = deps.clock.now();
+    const pending = deps.db
+      .prepare(
+        `SELECT COUNT(*) AS n, MIN(b.created_at) AS oldest
+         FROM batches b JOIN clients c ON c.id = b.client_id
+         WHERE b.status = 'pending' AND c.status = 'active'`
+      )
+      .get() as { n: number; oldest: string | null };
+    const oldestPendingMin =
+      pending.oldest === null
+        ? 0
+        : Math.round((now.getTime() - new Date(pending.oldest).getTime()) / 60000);
+    const llmErrors24h = (
+      deps.db
+        .prepare(
+          'SELECT COUNT(*) AS n FROM llm_calls WHERE error IS NOT NULL AND created_at > ?'
+        )
+        .get(new Date(now.getTime() - 24 * 3600 * 1000).toISOString()) as { n: number }
+    ).n;
+    const lastBackup = latestBackupDate(backupsDirFor(deps.cfg.dbPath));
+    const today = now.toISOString().slice(0, 10);
+
+    const warnings: string[] = [];
+    if (pending.n > 0 && oldestPendingMin > 30) {
+      warnings.push(`${pending.n} batch(es) stuck pending — oldest ${oldestPendingMin} min (LLM failing?)`);
+    }
+    if (llmErrors24h > 0) warnings.push(`${llmErrors24h} LLM error(s) in the last 24h — see llm_calls`);
+    if (lastBackup !== undefined && lastBackup < today) {
+      warnings.push(`no backup yet today (last: ${lastBackup})`);
+    }
+
+    res.json({
+      pendingBatches: pending.n,
+      oldestPendingMin,
+      llmErrors24h,
+      lastBackup: lastBackup ?? null,
+      snapshotExists: snapshotExists(deps.cfg.dbPath),
+      warnings,
+    });
   }));
 
   app.get('/api/clients', h((_req, res) => {
@@ -72,6 +117,10 @@ export function registerApiRoutes(app: Express, deps: AppDeps): void {
   }));
   app.post('/api/clients/:id/block', h((req, res) => {
     deps.clients.block(req.params.id as string);
+    res.json({ ok: true });
+  }));
+  app.post('/api/clients/:id/unblock', h((req, res) => {
+    deps.clients.unblock(req.params.id as string);
     res.json({ ok: true });
   }));
   app.post('/api/clients/:id/reset', h((req, res) => {

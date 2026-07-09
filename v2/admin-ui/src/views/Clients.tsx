@@ -26,8 +26,10 @@ export function Clients({ openClient }: { openClient: (id: string) => void }) {
                   {c.status === 'pending_verification' && (
                     <button onClick={() => act(() => post(`/clients/${c.id}/verify`))}>Verify</button>
                   )}
-                  {c.status !== 'blocked' && (
+                  {c.status !== 'blocked' ? (
                     <button className="ghost" onClick={() => act(() => post(`/clients/${c.id}/block`))}>Block</button>
+                  ) : (
+                    <button onClick={() => act(() => post(`/clients/${c.id}/unblock`))}>Unblock</button>
                   )}
                   <button
                     className="warn"

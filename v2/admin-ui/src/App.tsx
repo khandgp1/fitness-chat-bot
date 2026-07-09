@@ -53,6 +53,7 @@ export function App() {
 
   return (
     <>
+      <HealthBanner />
       <nav>
         <span className="brand">Coach Admin</span>
         <button className={view.name === 'triage' ? 'active' : 'ghost'} onClick={() => setView({ name: 'triage' })}>
@@ -72,6 +73,16 @@ export function App() {
         {view.name === 'dev' && <DevPanel />}
       </main>
     </>
+  );
+}
+
+function HealthBanner() {
+  const { data } = usePoll(() => get<{ warnings: string[] }>('/health'));
+  if (data === undefined || data.warnings.length === 0) return null;
+  return (
+    <div style={{ background: '#744210', padding: '8px 20px', fontSize: 13 }}>
+      ⚠ {data.warnings.join(' · ')}
+    </div>
   );
 }
 

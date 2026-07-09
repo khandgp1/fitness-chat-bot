@@ -19,6 +19,7 @@ import { openDb, type Db } from './db/connection.js';
 import { runMigrations } from './db/migrate.js';
 import { createComplianceEngine, type ComplianceEngine } from './domain/compliance.js';
 import type { Server } from 'node:http';
+import { runDailyBackup } from './ops/backup.js';
 import { createContextBuilder } from './pipeline/context.js';
 import { createServer } from './server/server.js';
 import { createDebouncer, type Debouncer } from './pipeline/debounce.js';
@@ -196,6 +197,12 @@ export function buildApp(
           debouncer.sweep();
           debouncer.rearm();
           void processor.retryPending().catch((err) => console.error('[retry] failed:', err));
+          const backedUp = runDailyBackup({
+            dbPath: cfg.dbPath,
+            narrativesDir: cfg.narrativesDir,
+            clock,
+          });
+          if (backedUp !== undefined) console.log(`[backup] ${backedUp}`);
         } catch (err) {
           console.error('[tick] failed:', err);
         }

@@ -14,6 +14,7 @@ export interface ClientRepo {
   getIdentity(clientId: string, channel: string): { externalId: string; handle?: string } | undefined;
   verify(id: string): void;
   block(id: string): void;
+  unblock(id: string): void;
   update(id: string, patch: { displayName?: string; timezone?: string }): void;
   setLastReconciledDate(id: string, date: string): void;
   reset(id: string): void;
@@ -104,6 +105,18 @@ export function createClientRepo(db: Db, clock: Clock, audit: AuditRepo): Client
         const c = requireClient(id);
         db.prepare("UPDATE clients SET status = 'blocked' WHERE id = ?").run(id);
         audit.event({ clientId: id, actor: 'operator', action: 'blocked', details: { from: c.status } });
+      });
+    },
+
+    // Blocked → active only if they were ever verified; a blocked stranger
+    // goes back to the verification gate, never straight to active.
+    unblock(id) {
+      withTransaction(db, () => {
+        const c = requireClient(id);
+        if (c.status !== 'blocked') throw new Error(`Cannot unblock client in status '${c.status}'`);
+        const to = c.verifiedAt !== undefined ? 'active' : 'pending_verification';
+        db.prepare('UPDATE clients SET status = ? WHERE id = ?').run(to, id);
+        audit.event({ clientId: id, actor: 'operator', action: 'unblocked', details: { to } });
       });
     },
 
